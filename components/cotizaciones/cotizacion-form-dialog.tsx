@@ -324,26 +324,7 @@ export function CotizacionFormDialog({
                   placeholder="Persona de contacto"
                 />
               </Field>
-              <Field>
-                <FieldLabel>Estado</FieldLabel>
-                <Select
-                  value={form.estado}
-                  onValueChange={(v) =>
-                    set("estado", (v as EstadoCotizacion) ?? "Borrador")
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTADOS_COTIZACION.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+            
               <Field>
                 <FieldLabel htmlFor="vigencia">Vigencia</FieldLabel>
                 <Input
