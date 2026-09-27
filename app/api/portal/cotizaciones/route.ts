@@ -97,9 +97,13 @@ export async function POST(request: Request) {
 
   // ---- aceptar / rechazar --------------------------------------------------
   // Idempotencia: si ya fue decidida, devolvemos el estado actual sin duplicar.
-  if (cot.estado === "Aceptada" || cot.estado === "Convertida") {
-    return NextResponse.json({ ok: true, sinCambios: true, estado: cot.estado })
-  }
+ if (cot.estado === "Aceptada") {
+  return NextResponse.json({
+    ok: true,
+    sinCambios: true,
+    estado: cot.estado
+  })
+}
   if (cot.estado === "Rechazada") {
     return NextResponse.json({ ok: true, sinCambios: true, estado: cot.estado })
   }
