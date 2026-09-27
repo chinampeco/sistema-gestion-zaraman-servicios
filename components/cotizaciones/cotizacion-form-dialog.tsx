@@ -139,7 +139,7 @@ export function CotizacionFormDialog({
               observaciones: cotizacion.observaciones,
               estado: cotizacion.estado,
               ordenId: cotizacion.ordenId,
-              leadId: cotizacion.leadId ?? null,
+              //leadId: cotizacion.leadId ?? null,
               creadoPor: cotizacion.creadoPor,
             }
           : {
