@@ -618,7 +618,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
         const { data: crow } = await supabase
           .from("cotizaciones")
-          .update({ orden_id: nueva.id, estado: "Convertida" })
+          .update({ orden_id: nueva.id, estado: "Aceptada" })
           .eq("id", cotizacion.id)
           .select("*")
           .single()
