@@ -78,7 +78,7 @@ function emptyForm(creadoPor: string): FormState {
     vigencia: null,
     condiciones: "",
     observaciones: "",
-    estado: "Borrador",
+    estado: "Enviada",
     ordenId: null,
     leadId: null,
     creadoPor,
