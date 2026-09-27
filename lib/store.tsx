@@ -1143,7 +1143,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .eq("leido", false)
       },
     }
-  }, [clientes, equipos, ordenes, tickets, tecnicos, campanas, leads, leadActividades, mensajesWhatsApp, usuarios, usuarioActual, cargando, supabase])
+  }, [clientes, equipos, ordenes, tickets, cotizaciones, facturas, pagos, tecnicos, campanas, leads, leadActividades, mensajesWhatsApp, usuarios, usuarioActual, cargando, supabase])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
