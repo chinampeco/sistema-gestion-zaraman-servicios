@@ -340,13 +340,11 @@ export const TIPOS_CONCEPTO: TipoConcepto[] = [
 ]
 
 export const ESTADOS_COTIZACION: EstadoCotizacion[] = [
-  "Borrador",
   "Enviada",
   "Vista",
   "Aceptada",
   "Rechazada",
   "Vencida",
-  "Convertida",
 ]
 
 export const ESTADOS_FACTURA: EstadoFactura[] = [
