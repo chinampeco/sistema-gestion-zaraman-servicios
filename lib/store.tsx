@@ -99,7 +99,7 @@ interface StoreContextValue {
   crearCotizacion: (
     data: Omit<Cotizacion, "id" | "folio" | "createdAt">,
   ) => Promise<Cotizacion | null>
-  actualizarCotizacion: (id: string, data: Partial<Cotizacion>) => Promise<void>
+  actualizarCotizacion: (id: string, data: Partial<Cotizacion>) => Promise<boolean>
   eliminarCotizacion: (id: string) => Promise<boolean>
   convertirCotizacionEnOrden: (cotizacion: Cotizacion) => Promise<OrdenServicio | null>
 
@@ -542,15 +542,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .eq("id", cotizacionId)
           .select("*")
           .single()
+
         if (error || !row) {
-          toast.error("No se pudo actualizar la cotización.")
-          return
+          console.error("[Cotizaciones] Error al actualizar cotización:", error)
+          toast.error(
+            error
+              ? `Error al actualizar cotización: ${error.message}`
+              : "No se recibió la cotización actualizada desde Supabase.",
+          )
+          return false
         }
+
         const actualizada = mapCotizacion(row)
         setCotizaciones((prev) =>
           prev.map((c) => (c.id === cotizacionId ? actualizada : c)),
         )
         toast.success("Cotización actualizada.")
+        return true
       },
       eliminarCotizacion: async (cotizacionId) => {
         const { error } = await supabase
