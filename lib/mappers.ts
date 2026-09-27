@@ -447,7 +447,7 @@ export function cotizacionToDb(data: Partial<Cotizacion>): Record<string, any> {
   if (data.observaciones !== undefined) out.observaciones = data.observaciones
   if (data.estado !== undefined) out.estado = data.estado
   if (data.ordenId !== undefined) out.orden_id = data.ordenId || null
-  if (data.leadId !== undefined) out.lead_id = data.leadId || null
+  //if (data.leadId !== undefined) out.lead_id = data.leadId || null
   if (data.motivoRechazo !== undefined) out.motivo_rechazo = data.motivoRechazo || null
   if (data.creadoPor !== undefined) out.creado_por = data.creadoPor || null
   return out
