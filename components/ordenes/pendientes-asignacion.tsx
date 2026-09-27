@@ -86,11 +86,8 @@ export function PendientesAsignacion() {
       historial: [...asignando.historial, evento],
     })
 
-    // La cotización de origen queda como "Convertida" al asignarse el técnico.
-    const cot = cotizacionDe(asignando)
-    if (cot) {
-      await actualizarCotizacion(cot.id, { estado: "Convertida" })
-    }
+    // La cotización aceptada permanece como "Aceptada" al asignar el técnico.
+    const cot = cotizacionDeOrden(asignando)
 
     const tecnico = tecnicos.find((t) => t.id === tecnicoId)
     toast.success(
