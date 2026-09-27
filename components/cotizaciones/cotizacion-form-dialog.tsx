@@ -166,6 +166,20 @@ export function CotizacionFormDialog({
     }
     return lista
   }, [equipos, form.clienteId, form.equipoId])
+  const clienteSelectItems = React.useMemo(
+    () => clientes.map((c) => ({ value: c.id, label: c.nombre })),
+    [clientes],
+  )
+
+  const equipoSelectItems = React.useMemo(
+    () =>
+      equiposCliente.map((e) => ({
+        value: e.id,
+        label: `${e.tipo} · ${e.marca} ${e.modelo}`.trim(),
+      })),
+    [equiposCliente],
+  )
+
   const totales = calcularTotales(form.conceptos)
 
   const handleClienteChange = (value: string | null) => {
@@ -221,7 +235,8 @@ export function CotizacionFormDialog({
       vigencia: form.vigencia || null,
     }
     if (cotizacion) {
-      await actualizarCotizacion(cotizacion.id, payload)
+      const actualizada = await actualizarCotizacion(cotizacion.id, payload)
+      if (!actualizada) return
       onOpenChange(false)
       return
     }
@@ -253,7 +268,11 @@ export function CotizacionFormDialog({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel>Cliente</FieldLabel>
-                <Select value={form.clienteId} onValueChange={handleClienteChange}>
+                <Select
+                  value={form.clienteId}
+                  onValueChange={handleClienteChange}
+                  items={clienteSelectItems}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Selecciona un cliente" />
                   </SelectTrigger>
@@ -272,6 +291,7 @@ export function CotizacionFormDialog({
                   value={form.equipoId ?? ""}
                   onValueChange={(v) => set("equipoId", (v as string) || null)}
                   disabled={!form.clienteId}
+                  items={equipoSelectItems}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue
