@@ -140,6 +140,25 @@ export function OrdenFormDialog({
     return activos
   }, [tecnicos, form.tecnicoId])
 
+  const clienteSelectItems = React.useMemo(
+    () => clientes.map((c) => ({ value: c.id, label: c.nombre })),
+    [clientes],
+  )
+
+  const equipoSelectItems = React.useMemo(
+    () =>
+      equiposCliente.map((e) => ({
+        value: e.id,
+        label: `${e.tipo} · ${e.marca} ${e.modelo}`.trim(),
+      })),
+    [equiposCliente],
+  )
+
+  const tecnicoSelectItems = React.useMemo(
+    () => tecnicosDisponibles.map((t) => ({ value: t.id, label: t.nombre })),
+    [tecnicosDisponibles],
+  )
+
   const handleClienteChange = (clienteId: string) => {
     setForm((prev) => ({ ...prev, clienteId, equipoId: "" }))
   }
@@ -197,7 +216,11 @@ export function OrdenFormDialog({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel>Cliente</FieldLabel>
-                <Select value={form.clienteId} onValueChange={handleClienteChange}>
+                <Select
+                  value={form.clienteId}
+                  onValueChange={handleClienteChange}
+                  items={clienteSelectItems}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Selecciona un cliente" />
                   </SelectTrigger>
@@ -216,6 +239,7 @@ export function OrdenFormDialog({
                   value={form.equipoId}
                   onValueChange={(v) => set("equipoId", (v as string) ?? "")}
                   disabled={!form.clienteId}
+                  items={equipoSelectItems}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue
@@ -301,6 +325,7 @@ export function OrdenFormDialog({
                 <Select
                   value={form.tecnicoId ?? ""}
                   onValueChange={(v) => set("tecnicoId", (v as string) || null)}
+                  items={tecnicoSelectItems}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Sin asignar" />
