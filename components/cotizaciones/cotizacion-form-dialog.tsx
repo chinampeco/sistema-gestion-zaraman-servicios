@@ -47,6 +47,7 @@ interface CotizacionFormDialogProps {
   cotizacion?: Cotizacion | null
   // Valores iniciales al crear una cotización desde otro contexto (p.ej. un lead).
   prefill?: CotizacionPrefill | null
+  onSaved?: () => void
 }
 
 type FormState = Omit<Cotizacion, "id" | "folio" | "createdAt">
@@ -108,6 +109,7 @@ export function CotizacionFormDialog({
   onOpenChange,
   cotizacion,
   prefill,
+  onSaved,
 }: CotizacionFormDialogProps) {
   const {
     clientes,
@@ -245,6 +247,7 @@ export function CotizacionFormDialog({
     if (!nuevaCotizacion) return
 
     onOpenChange(false)
+    onSaved?.()
   }
 
   return (
