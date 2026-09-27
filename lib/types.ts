@@ -47,14 +47,12 @@ export type TipoConcepto =
   | "Producto"
   | "Otro"
 
-export type EstadoCotizacion =
-  | "Borrador"
+export type EstadoCotizacion =  
   | "Enviada"
   | "Vista"
   | "Aceptada"
   | "Rechazada"
   | "Vencida"
-  | "Convertida"
 
 export type EstadoFactura =
   | "Pendiente"
