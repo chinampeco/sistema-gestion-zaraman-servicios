@@ -150,8 +150,6 @@ export function estadoCotizacionVariant(estado: EstadoCotizacion): BadgeVariant 
       return "destructive"
     case "Vencida":
       return "warning"
-    case "Convertida":
-      return "success"
     default:
       return "secondary"
   }
