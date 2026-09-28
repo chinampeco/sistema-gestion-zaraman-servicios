@@ -6,6 +6,7 @@ import { Printer } from "lucide-react"
 import type { Cliente, Equipo, OrdenServicio, Tecnico } from "@/lib/types"
 import { formatFecha, formatHora } from "@/lib/format"
 import { Button } from "@/components/ui/button"
+import { getFirmaTecnico } from "@/components/ordenes/orden-firma"
 
 interface ReporteServicioPrintProps {
   orden: OrdenServicio
@@ -14,12 +15,7 @@ interface ReporteServicioPrintProps {
   tecnico?: Tecnico
 }
 
-export function ReporteServicioPrint({
-  orden,
-  cliente,
-  equipo,
-  tecnico,
-}: ReporteServicioPrintProps) {
+export function ReporteServicioPrint({ orden, cliente, equipo, tecnico }: ReporteServicioPrintProps) {
   const imprimir = () => {
     const tituloOriginal = document.title
     document.title = `ZARAMAN SERVICIOS - ${orden.folio}`
@@ -28,6 +24,8 @@ export function ReporteServicioPrint({
       document.title = tituloOriginal
     }, 1000)
   }
+
+  const firmaTecnico = getFirmaTecnico(orden)
 
   return (
     <>
@@ -39,11 +37,7 @@ export function ReporteServicioPrint({
       <div className="print-report hidden">
         <div className="print-header">
           <div className="print-brand-block">
-            <img
-              src="/zaraman-logo.svg"
-              alt="ZARAMAN S.A. de C.V."
-              className="print-logo"
-            />
+            <img src="/zaraman-logo.svg" alt="ZARAMAN S.A. de C.V." className="print-logo" />
           </div>
           <div className="print-title-block">
             <div className="print-document-title">REPORTE DE SERVICIO</div>
@@ -136,10 +130,7 @@ export function ReporteServicioPrint({
               {orden.evidencias.map((evidencia) => (
                 <figure key={evidencia.id}>
                   <img src={evidencia.url} alt={evidencia.descripcion || evidencia.fase} />
-                  <figcaption>
-                    <strong>{evidencia.fase}</strong>
-                    {evidencia.descripcion ? ` · ${evidencia.descripcion}` : ""}
-                  </figcaption>
+                  <figcaption><strong>{evidencia.fase}</strong>{evidencia.descripcion ? ` · ${evidencia.descripcion}` : ""}</figcaption>
                 </figure>
               ))}
             </div>
@@ -147,7 +138,7 @@ export function ReporteServicioPrint({
         ) : null}
 
         <section className="print-section print-signatures">
-          <h2>Conformidad</h2>
+          <h2>Conformidad y cierre</h2>
           <div className="print-signature-grid">
             <div>
               <div className="print-signature-box">
@@ -157,9 +148,12 @@ export function ReporteServicioPrint({
               {orden.firmaFecha ? <div className="print-muted">Fecha: {formatFecha(orden.firmaFecha)}</div> : null}
             </div>
             <div>
-              <div className="print-signature-box" />
+              <div className="print-signature-box">
+                {firmaTecnico?.firmaTecnico ? <img src={firmaTecnico.firmaTecnico} alt="Firma del técnico" /> : null}
+              </div>
               <div className="print-signature-line">Firma del técnico</div>
-              <div className="print-muted">{tecnico?.nombre ?? "Sin asignar"}</div>
+              <div className="print-muted">{firmaTecnico?.usuarioNombre ?? tecnico?.nombre ?? "Sin firma"}</div>
+              {firmaTecnico?.firmaTecnicoFecha ? <div className="print-muted">Fecha: {formatFecha(firmaTecnico.firmaTecnicoFecha)}</div> : null}
             </div>
           </div>
         </section>
