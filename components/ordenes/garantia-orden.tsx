@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ShieldCheck, Plus, ReceiptText, Wrench } from "lucide-react"
+import { ShieldCheck, ReceiptText, Wrench, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -43,6 +43,14 @@ interface GastoGarantia {
   observaciones: string
 }
 
+const GASTO_VACIO = {
+  concepto: "",
+  categoria: "Material" as GastoGarantia["categoria"],
+  cantidad: 1,
+  costoUnitario: 0,
+  observaciones: "",
+}
+
 function calcularVigencia(row: GarantiaRow | null) {
   if (!row?.tiene_garantia || !row.fecha_fin) return "Sin garantía"
   const hoy = new Date(`${hoyISO()}T00:00:00`)
@@ -60,7 +68,9 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
   const [garantia, setGarantia] = React.useState<GarantiaRow | null>(null)
   const [cargando, setCargando] = React.useState(true)
   const [atencionOpen, setAtencionOpen] = React.useState(false)
+  const [gastoOpen, setGastoOpen] = React.useState(false)
   const [motivo, setMotivo] = React.useState("")
+  const [gasto, setGasto] = React.useState(GASTO_VACIO)
   const [guardando, setGuardando] = React.useState(false)
 
   const cargar = React.useCallback(async () => {
@@ -72,7 +82,6 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
       .maybeSingle()
 
     if (error) {
-      // Mientras la migración aún no se haya aplicado, no bloqueamos la pantalla.
       console.warn("No se pudo cargar la garantía de la orden:", error.message)
       setGarantia(null)
     } else if (data) {
@@ -164,6 +173,45 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
     }
   }
 
+  const guardarGasto = async () => {
+    if (!garantia || !esAtencionGarantia || !gasto.concepto.trim()) {
+      toast.error("Indica el concepto del gasto.")
+      return
+    }
+    if (gasto.cantidad <= 0 || gasto.costoUnitario < 0) {
+      toast.error("La cantidad debe ser mayor a cero y el costo no puede ser negativo.")
+      return
+    }
+
+    setGuardando(true)
+    const nuevoGasto: GastoGarantia = {
+      id: crypto.randomUUID(),
+      concepto: gasto.concepto.trim(),
+      categoria: gasto.categoria,
+      cantidad: Number(gasto.cantidad),
+      costoUnitario: Number(gasto.costoUnitario),
+      total: Number(gasto.cantidad) * Number(gasto.costoUnitario),
+      fecha: hoyISO(),
+      observaciones: gasto.observaciones.trim(),
+    }
+    const gastos = [...garantia.gastos, nuevoGasto]
+
+    const { error } = await supabase
+      .from("orden_garantias")
+      .update({ gastos })
+      .eq("id", garantia.id)
+
+    if (error) {
+      toast.error("No se pudo registrar el gasto.")
+    } else {
+      toast.success("Gasto de garantía registrado.")
+      setGasto(GASTO_VACIO)
+      setGastoOpen(false)
+      await cargar()
+    }
+    setGuardando(false)
+  }
+
   const totalGastos = gastoTotal(garantia?.gastos ?? [])
 
   if (cargando) {
@@ -174,10 +222,7 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="size-5" />
-            Garantía
-          </CardTitle>
+          <CardTitle className="flex items-center gap-2"><ShieldCheck className="size-5" />Garantía</CardTitle>
           <Badge variant={estado === "Vigente" ? "default" : estado === "Vencida" ? "destructive" : "outline"}>
             {esAtencionGarantia ? "Atención de garantía" : estado}
           </Badge>
@@ -203,30 +248,38 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
 
           {esAtencionGarantia && garantia?.orden_origen_id ? (
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
-              Esta orden fue generada como atención de garantía de la orden original. La orden original permanece intacta.
+              Esta orden fue generada como atención de garantía. La orden original permanece intacta.
             </div>
           ) : null}
 
-          {garantia?.tiene_garantia && (
-            <div className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <ReceiptText className="size-4" />
-                  Costos internos de garantía
+          {esAtencionGarantia ? (
+            <div className="rounded-lg border p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-medium"><ReceiptText className="size-4" />Gastos internos de garantía</div>
+                  <p className="text-xs text-muted-foreground">No implican cobro al cliente. Sirven para medir el costo real de la garantía.</p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Materiales, traslado, mano de obra y otros gastos. No implican cobro al cliente.
-                </p>
+                <span className="text-lg font-semibold">${totalGastos.toFixed(2)}</span>
               </div>
-              <span className="text-lg font-semibold">${totalGastos.toFixed(2)}</span>
+              {garantia?.gastos.length ? (
+                <div className="mb-3 divide-y rounded-md border">
+                  {garantia.gastos.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-3 p-3 text-sm">
+                      <div>
+                        <div className="font-medium">{item.concepto}</div>
+                        <div className="text-xs text-muted-foreground">{item.categoria} · {item.cantidad} × ${item.costoUnitario.toFixed(2)}</div>
+                      </div>
+                      <div className="font-medium">${item.total.toFixed(2)}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              <Button variant="outline" size="sm" onClick={() => setGastoOpen(true)}><Plus data-icon="inline-start" />Registrar gasto</Button>
             </div>
-          )}
+          ) : null}
 
           {puedeGenerarAtencion ? (
-            <Button onClick={() => setAtencionOpen(true)}>
-              <Wrench data-icon="inline-start" />
-              Nueva atención por garantía
-            </Button>
+            <Button onClick={() => setAtencionOpen(true)}><Wrench data-icon="inline-start" />Nueva atención por garantía</Button>
           ) : null}
         </CardContent>
       </Card>
@@ -235,27 +288,62 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Nueva atención por garantía</DialogTitle>
-            <DialogDescription>
-              Se creará una nueva orden vinculada a {orden.folio}. La orden original no se modificará.
-            </DialogDescription>
+            <DialogDescription>Se creará una nueva orden vinculada a {orden.folio}. La orden original no se modificará.</DialogDescription>
           </DialogHeader>
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="motivo-garantia">Motivo reportado</FieldLabel>
-              <Textarea
-                id="motivo-garantia"
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-                placeholder="Describe la falla o motivo por el que el cliente solicita la garantía."
-                rows={4}
-              />
+              <Textarea id="motivo-garantia" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Describe la falla o motivo por el que el cliente solicita la garantía." rows={4} />
             </Field>
           </FieldGroup>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAtencionOpen(false)}>Cancelar</Button>
-            <Button disabled={guardando || !motivo.trim()} onClick={crearAtencionGarantia}>
-              {guardando ? "Creando…" : "Crear atención"}
-            </Button>
+            <Button disabled={guardando || !motivo.trim()} onClick={crearAtencionGarantia}>{guardando ? "Creando…" : "Crear atención"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={gastoOpen} onOpenChange={setGastoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar gasto de garantía</DialogTitle>
+            <DialogDescription>Este importe se registra como costo interno de ZARAMAN y no modifica el cobro al cliente.</DialogDescription>
+          </DialogHeader>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="gasto-concepto">Concepto</FieldLabel>
+              <Input id="gasto-concepto" value={gasto.concepto} onChange={(e) => setGasto((prev) => ({ ...prev, concepto: e.target.value }))} placeholder="Ej. Contactor, combustible, traslado…" />
+            </Field>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <Field>
+                <FieldLabel>Categoría</FieldLabel>
+                <Select value={gasto.categoria} onValueChange={(v) => setGasto((prev) => ({ ...prev, categoria: v as GastoGarantia["categoria"] }))}>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Material">Material</SelectItem>
+                    <SelectItem value="Traslado">Traslado</SelectItem>
+                    <SelectItem value="Mano de obra">Mano de obra</SelectItem>
+                    <SelectItem value="Otro">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="gasto-cantidad">Cantidad</FieldLabel>
+                <Input id="gasto-cantidad" type="number" min={0.01} step="0.01" value={gasto.cantidad} onChange={(e) => setGasto((prev) => ({ ...prev, cantidad: Number(e.target.value) }))} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="gasto-costo">Costo unitario</FieldLabel>
+                <Input id="gasto-costo" type="number" min={0} step="0.01" value={gasto.costoUnitario} onChange={(e) => setGasto((prev) => ({ ...prev, costoUnitario: Number(e.target.value) }))} />
+              </Field>
+            </div>
+            <Field>
+              <FieldLabel htmlFor="gasto-observaciones">Observaciones</FieldLabel>
+              <Textarea id="gasto-observaciones" value={gasto.observaciones} onChange={(e) => setGasto((prev) => ({ ...prev, observaciones: e.target.value }))} rows={2} />
+            </Field>
+          </FieldGroup>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGastoOpen(false)}>Cancelar</Button>
+            <Button disabled={guardando || !gasto.concepto.trim()} onClick={guardarGasto}>{guardando ? "Guardando…" : "Guardar gasto"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -264,10 +352,5 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
 }
 
 function Dato({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-sm">{children}</span>
-    </div>
-  )
+  return <div className="flex flex-col gap-1"><span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span><span className="text-sm">{children}</span></div>
 }
