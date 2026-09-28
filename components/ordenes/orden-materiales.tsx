@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, LockKeyhole } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -39,6 +39,7 @@ export function OrdenMateriales({ orden }: { orden: OrdenServicio }) {
   const { actualizarOrden, tecnicos } = useStore()
   const [items, setItems] = React.useState<MaterialOrden[]>(orden.materialesDetalle)
   const [guardando, setGuardando] = React.useState(false)
+  const bloqueada = Boolean(orden.firmaCliente)
 
   React.useEffect(() => {
     setItems(orden.materialesDetalle)
@@ -58,6 +59,10 @@ export function OrdenMateriales({ orden }: { orden: OrdenServicio }) {
     setItems((prev) => prev.filter((m) => m.id !== id))
 
   const guardar = async () => {
+    if (bloqueada) {
+      toast.error("La orden está bloqueada después de la firma del cliente.")
+      return
+    }
     setGuardando(true)
     try {
       await actualizarOrden(orden.id, { materialesDetalle: items })
@@ -71,6 +76,35 @@ export function OrdenMateriales({ orden }: { orden: OrdenServicio }) {
 
   const tecnicoNombre = (id: string | null) =>
     tecnicos.find((t) => t.id === id)?.nombre ?? "—"
+
+  if (bloqueada) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
+          <LockKeyhole className="size-4" />
+          Materiales y refacciones bloqueados después de la firma del cliente.
+        </div>
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hay refacciones o materiales registrados.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {items.map((m) => (
+              <div key={m.id} className="grid grid-cols-1 gap-2 rounded-lg border p-3 sm:grid-cols-5">
+                <div><span className="text-xs text-muted-foreground">Descripción</span><p className="text-sm">{m.descripcion || "—"}</p></div>
+                <div><span className="text-xs text-muted-foreground">Código / SKU</span><p className="text-sm">{m.codigo || "—"}</p></div>
+                <div><span className="text-xs text-muted-foreground">Cantidad</span><p className="text-sm">{m.cantidad} {m.unidad}</p></div>
+                <div><span className="text-xs text-muted-foreground">Precio unitario</span><p className="text-sm">{formatMoneda(m.precio)}</p></div>
+                <div><span className="text-xs text-muted-foreground">Registró</span><p className="text-sm">{tecnicoNombre(m.tecnicoId)}</p></div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="text-right text-sm text-muted-foreground">
+          Total materiales: <span className="font-semibold text-foreground">{formatMoneda(total)}</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -132,17 +166,13 @@ export function OrdenMateriales({ orden }: { orden: OrdenServicio }) {
                 </Select>
               </div>
               <div className="sm:col-span-3">
-                <label className="text-xs text-muted-foreground">
-                  Precio unitario
-                </label>
+                <label className="text-xs text-muted-foreground">Precio unitario</label>
                 <Input
                   type="number"
                   min={0}
                   step="0.01"
                   value={m.precio}
-                  onChange={(e) =>
-                    setItem(m.id, { precio: Number(e.target.value) || 0 })
-                  }
+                  onChange={(e) => setItem(m.id, { precio: Number(e.target.value) || 0 })}
                 />
               </div>
               <div className="sm:col-span-5">
@@ -156,20 +186,10 @@ export function OrdenMateriales({ orden }: { orden: OrdenServicio }) {
               <div className="flex items-end justify-between gap-2 sm:col-span-4">
                 <div>
                   <span className="text-xs text-muted-foreground">Importe</span>
-                  <p className="text-sm font-medium tabular-nums">
-                    {formatMoneda(m.cantidad * m.precio)}
-                  </p>
-                  <span className="text-xs text-muted-foreground">
-                    Registró: {tecnicoNombre(m.tecnicoId)}
-                  </span>
+                  <p className="text-sm font-medium tabular-nums">{formatMoneda(m.cantidad * m.precio)}</p>
+                  <span className="text-xs text-muted-foreground">Registró: {tecnicoNombre(m.tecnicoId)}</span>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => eliminar(m.id)}
-                  aria-label="Eliminar material"
-                >
+                <Button type="button" variant="ghost" size="icon-sm" onClick={() => eliminar(m.id)} aria-label="Eliminar material">
                   <Trash2 />
                 </Button>
               </div>
@@ -185,10 +205,7 @@ export function OrdenMateriales({ orden }: { orden: OrdenServicio }) {
         </Button>
         <div className="flex items-center gap-4">
           <span className="text-sm text-muted-foreground">
-            Total materiales:{" "}
-            <span className="font-semibold text-foreground tabular-nums">
-              {formatMoneda(total)}
-            </span>
+            Total materiales: <span className="font-semibold text-foreground tabular-nums">{formatMoneda(total)}</span>
           </span>
           <Button type="button" size="sm" onClick={guardar} disabled={!sucio || guardando}>
             {guardando ? "Guardando..." : "Guardar materiales"}
