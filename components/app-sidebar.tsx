@@ -19,6 +19,7 @@ import {
   Megaphone,
   UserPlus,
   MessageCircle,
+  Boxes,
 } from "lucide-react"
 
 import {
@@ -49,6 +50,7 @@ const navPrincipal: NavItem[] = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard, modulo: "dashboard" },
   { title: "Clientes", href: "/clientes", icon: Users, modulo: "clientes" },
   { title: "Equipos", href: "/equipos", icon: Wrench, modulo: "equipos" },
+  { title: "Inventario", href: "/inventario", icon: Boxes, modulo: "inventario" },
   { title: "Tickets", href: "/tickets", icon: Ticket, modulo: "tickets" },
   { title: "Cotizaciones", href: "/cotizaciones", icon: FileText, modulo: "cotizaciones" },
   { title: "Órdenes de servicio", href: "/ordenes", icon: ClipboardList, modulo: "ordenes" },
