@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { useStore } from "@/lib/store"
 import { formatFecha } from "@/lib/format"
 import type { HistorialEvento, OrdenServicio } from "@/lib/types"
-import { createClient } from "@/lib/supabase/client"
 
 type FirmaTecnicoEvento = HistorialEvento & {
   tipo?: string
@@ -22,18 +21,8 @@ function obtenerFirmaTecnico(orden: OrdenServicio): FirmaTecnicoEvento | null {
   return [...eventos].reverse().find((evento) => evento.tipo === "Firma técnico" && evento.firmaTecnico) ?? null
 }
 
-function sumarGarantia(fechaInicio: string, valor: number, unidad: string) {
-  const fecha = new Date(`${fechaInicio}T00:00:00`)
-  if (unidad === "Días") fecha.setDate(fecha.getDate() + valor - 1)
-  if (unidad === "Meses") fecha.setMonth(fecha.getMonth() + valor)
-  if (unidad === "Años") fecha.setFullYear(fecha.getFullYear() + valor)
-  if (unidad !== "Días") fecha.setDate(fecha.getDate() - 1)
-  return fecha.toISOString().slice(0, 10)
-}
-
 export function OrdenFirma({ orden }: { orden: OrdenServicio }) {
   const { usuarioActual, actualizarOrden } = useStore()
-  const supabase = React.useMemo(() => createClient(), [])
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const dibujando = React.useRef(false)
   const [tieneTrazo, setTieneTrazo] = React.useState(false)
@@ -105,49 +94,6 @@ export function OrdenFirma({ orden }: { orden: OrdenServicio }) {
     }
   }
 
-  const activarGarantiaDelServicio = async (fechaCierre: string) => {
-    const { data, error } = await supabase
-      .from("orden_garantias")
-      .select("id, tiene_garantia, orden_origen_id, duracion_valor, duracion_unidad")
-      .eq("orden_id", orden.id)
-      .maybeSingle()
-
-    if (error) throw error
-    if (!data) return
-
-    // Una atención posterior por garantía conserva la vigencia de la garantía original.
-    if (data.orden_origen_id) return
-
-    if (!data.tiene_garantia) {
-      await supabase
-        .from("orden_garantias")
-        .update({ resultado: "No aplica", fecha_inicio: null, fecha_fin: null })
-        .eq("id", data.id)
-      return
-    }
-
-    if (!data.duracion_valor || !data.duracion_unidad) {
-      throw new Error("La garantía no tiene una duración válida.")
-    }
-
-    const fechaFin = sumarGarantia(
-      fechaCierre,
-      Number(data.duracion_valor),
-      data.duracion_unidad,
-    )
-
-    const { error: updateError } = await supabase
-      .from("orden_garantias")
-      .update({
-        fecha_inicio: fechaCierre,
-        fecha_fin: fechaFin,
-        resultado: "Vigente",
-      })
-      .eq("id", data.id)
-
-    if (updateError) throw updateError
-  }
-
   const guardarFirmaTecnico = async () => {
     if (!orden.firmaCliente?.trim()) {
       toast.error("No se puede cerrar la orden: primero debe quedar registrada la firma del cliente.")
@@ -177,6 +123,8 @@ export function OrdenFirma({ orden }: { orden: OrdenServicio }) {
         tecnicoId: orden.tecnicoId,
       }
 
+      // El trigger de Supabase activa la garantía automáticamente al pasar a Terminada.
+      // El técnico no necesita permiso de escritura sobre orden_garantias.
       await actualizarOrden(orden.id, {
         historial: [...(orden.historial ?? []), evento as HistorialEvento],
         estado: "Terminada",
@@ -184,13 +132,10 @@ export function OrdenFirma({ orden }: { orden: OrdenServicio }) {
         cerradaPor: usuarioActual.id,
       })
 
-      await activarGarantiaDelServicio(ahora.slice(0, 10))
-
       limpiar()
       toast.success("Firma del técnico guardada. La orden quedó terminada y, si corresponde, la garantía inició en la fecha de cierre.")
-    } catch (error) {
-      console.error(error)
-      toast.error("La orden se cerró, pero no se pudo activar la garantía. Revisa la configuración de garantía.")
+    } catch {
+      toast.error("No se pudo guardar la firma del técnico.")
     } finally {
       setGuardando(false)
     }
