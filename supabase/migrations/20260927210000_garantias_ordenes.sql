@@ -56,8 +56,8 @@ using (
     select 1
     from public.profiles p
     where p.id = auth.uid()
-      and p.rol in ('Administrador', 'Coordinador', 'Supervisor', 'Técnico', 'Consulta')
-      and coalesce(p.activo, true) = true
+      and p.role in ('administrador', 'coordinador', 'supervisor', 'tecnico', 'consulta')
+      and coalesce(p.active, true) = true
   )
 );
 
@@ -71,8 +71,8 @@ using (
     select 1
     from public.profiles p
     where p.id = auth.uid()
-      and p.rol in ('Administrador', 'Coordinador', 'Supervisor', 'Técnico')
-      and coalesce(p.activo, true) = true
+      and p.role in ('administrador', 'coordinador', 'supervisor')
+      and coalesce(p.active, true) = true
   )
 )
 with check (
@@ -80,8 +80,8 @@ with check (
     select 1
     from public.profiles p
     where p.id = auth.uid()
-      and p.rol in ('Administrador', 'Coordinador', 'Supervisor', 'Técnico')
-      and coalesce(p.activo, true) = true
+      and p.role in ('administrador', 'coordinador', 'supervisor')
+      and coalesce(p.active, true) = true
   )
 );
 
