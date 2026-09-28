@@ -195,8 +195,10 @@ export function ReporteServicioPrint({
         @media print {
           @page { size:A4; margin:12mm; }
           body { background:#fff !important; }
-          .screen-detail { display:none !important; }
-          .print-report { display:block !important; }
+          body:has(.print-report) * { visibility:hidden !important; }
+          body:has(.print-report) .print-report,
+          body:has(.print-report) .print-report * { visibility:visible !important; }
+          body:has(.print-report) .print-report { display:block !important; position:absolute !important; left:0 !important; top:0 !important; width:100% !important; }
         }
       `}</style>
     </>
