@@ -196,7 +196,14 @@ export function PendientesAsignacion() {
             <label className="text-sm font-medium">Técnico responsable</label>
             <Select value={tecnicoId} onValueChange={(v) => setTecnicoId(v ?? "")}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecciona un técnico" />
+                <SelectValue placeholder="Selecciona un técnico">
+                  {(value) => {
+                    const tecnico = tecnicos.find((t) => t.id === value)
+                    return tecnico
+                      ? `${tecnico.nombre} · ${tecnico.especialidad || tecnico.rol}`
+                      : "Selecciona un técnico"
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {tecnicosActivos.length === 0 ? (
