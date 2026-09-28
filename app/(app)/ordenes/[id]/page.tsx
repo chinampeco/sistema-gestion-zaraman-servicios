@@ -12,6 +12,7 @@ import { OrdenMateriales } from "@/components/ordenes/orden-materiales"
 import { OrdenEvidencias } from "@/components/ordenes/orden-evidencias"
 import { OrdenFirma } from "@/components/ordenes/orden-firma"
 import { OrdenParteTecnico } from "@/components/ordenes/orden-parte-tecnico"
+import { GarantiaOrden } from "@/components/ordenes/garantia-orden"
 import { EstadoOrdenBadge, PrioridadBadge } from "@/components/status-badges"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -168,6 +169,8 @@ export default function OrdenDetailPage() {
           </Card>
         </div>
       </div>
+
+      <GarantiaOrden orden={orden} />
 
       <Card>
         <CardHeader><CardTitle>Firmas y cierre del servicio</CardTitle></CardHeader>
