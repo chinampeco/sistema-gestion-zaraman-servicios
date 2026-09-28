@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/select"
 import { useStore } from "@/lib/store"
 import { hoyISO } from "@/lib/format"
-import { createClient } from "@/lib/supabase/client"
 import {
   ESTADOS_ORDEN,
   PRIORIDADES,
@@ -42,22 +41,6 @@ interface OrdenFormDialogProps {
 }
 
 type FormState = Omit<OrdenServicio, "id" | "folio">
-
-type GarantiaForm = {
-  tieneGarantia: boolean
-  duracionValor: number | null
-  duracionUnidad: "Días" | "Meses" | "Años"
-  cobertura: string
-  condiciones: string
-}
-
-const GARANTIA_DEFAULT: GarantiaForm = {
-  tieneGarantia: false,
-  duracionValor: null,
-  duracionUnidad: "Meses",
-  cobertura: "Mano de obra + materiales",
-  condiciones: "",
-}
 
 function emptyForm(creadoPor: string): FormState {
   return {
@@ -89,15 +72,6 @@ function emptyForm(creadoPor: string): FormState {
   }
 }
 
-function sumarGarantia(fechaInicio: string, valor: number, unidad: GarantiaForm["duracionUnidad"]) {
-  const fecha = new Date(`${fechaInicio}T00:00:00`)
-  if (unidad === "Días") fecha.setDate(fecha.getDate() + valor - 1)
-  if (unidad === "Meses") fecha.setMonth(fecha.getMonth() + valor)
-  if (unidad === "Años") fecha.setFullYear(fecha.getFullYear() + valor)
-  if (unidad !== "Días") fecha.setDate(fecha.getDate() - 1)
-  return fecha.toISOString().slice(0, 10)
-}
-
 export function OrdenFormDialog({
   open,
   onOpenChange,
@@ -106,14 +80,11 @@ export function OrdenFormDialog({
   const {
     clientes,
     equipos,
-    tecnicos,
     usuarioActual,
     crearOrden,
     actualizarOrden,
   } = useStore()
-  const supabase = React.useMemo(() => createClient(), [])
   const [form, setForm] = React.useState<FormState>(emptyForm(usuarioActual.nombre))
-  const [garantia, setGarantia] = React.useState<GarantiaForm>(GARANTIA_DEFAULT)
 
   React.useEffect(() => {
     if (!open) return
@@ -149,27 +120,7 @@ export function OrdenFormDialog({
           }
         : emptyForm(usuarioActual.nombre),
     )
-
-    setGarantia(GARANTIA_DEFAULT)
-    if (orden) {
-      void (async () => {
-        const { data } = await supabase
-          .from("orden_garantias")
-          .select("tiene_garantia, duracion_valor, duracion_unidad, cobertura, condiciones")
-          .eq("orden_id", orden.id)
-          .maybeSingle()
-        if (data) {
-          setGarantia({
-            tieneGarantia: Boolean(data.tiene_garantia),
-            duracionValor: data.duracion_valor == null ? null : Number(data.duracion_valor),
-            duracionUnidad: (data.duracion_unidad ?? "Meses") as GarantiaForm["duracionUnidad"],
-            cobertura: data.cobertura ?? GARANTIA_DEFAULT.cobertura,
-            condiciones: data.condiciones ?? "",
-          })
-        }
-      })()
-    }
-  }, [open, orden, usuarioActual.nombre, supabase])
+  }, [open, orden, usuarioActual.nombre])
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -182,15 +133,6 @@ export function OrdenFormDialog({
     }
     return lista
   }, [equipos, form.clienteId, form.equipoId])
-
-  const tecnicosDisponibles = React.useMemo(() => {
-    const activos = tecnicos.filter((t) => t.activo)
-    if (form.tecnicoId && !activos.some((t) => t.id === form.tecnicoId)) {
-      const actual = tecnicos.find((t) => t.id === form.tecnicoId)
-      if (actual) activos.push(actual)
-    }
-    return activos
-  }, [tecnicos, form.tecnicoId])
 
   const clienteSelectItems = React.useMemo(
     () => clientes.map((c) => ({ value: c.id, label: c.nombre })),
@@ -206,41 +148,8 @@ export function OrdenFormDialog({
     [equiposCliente],
   )
 
-  const tecnicoSelectItems = React.useMemo(
-    () => tecnicosDisponibles.map((t) => ({ value: t.id, label: t.nombre })),
-    [tecnicosDisponibles],
-  )
-
   const handleClienteChange = (clienteId: string) => {
     setForm((prev) => ({ ...prev, clienteId, equipoId: "" }))
-  }
-
-  const guardarGarantia = async (ordenId: string, fechaCierre: string | null) => {
-    const fechaInicio = garantia.tieneGarantia ? fechaCierre || hoyISO() : null
-    const fechaFin =
-      garantia.tieneGarantia && garantia.duracionValor && fechaInicio
-        ? sumarGarantia(fechaInicio, garantia.duracionValor, garantia.duracionUnidad)
-        : null
-
-    const { error } = await supabase.from("orden_garantias").upsert(
-      {
-        orden_id: ordenId,
-        orden_origen_id: null,
-        tiene_garantia: garantia.tieneGarantia,
-        duracion_valor: garantia.tieneGarantia ? garantia.duracionValor : null,
-        duracion_unidad: garantia.tieneGarantia ? garantia.duracionUnidad : null,
-        fecha_inicio: fechaInicio,
-        fecha_fin: fechaFin,
-        cobertura: garantia.tieneGarantia ? garantia.cobertura : null,
-        condiciones: garantia.tieneGarantia ? garantia.condiciones : null,
-        resultado: garantia.tieneGarantia ? "Vigente" : "Pendiente",
-      },
-      { onConflict: "orden_id" },
-    )
-
-    if (error) {
-      toast.error("La orden se guardó, pero no se pudo guardar la garantía. Verifica la migración de Supabase.")
-    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -257,10 +166,6 @@ export function OrdenFormDialog({
       toast.error("Describe la falla o el motivo del servicio.")
       return
     }
-    if (garantia.tieneGarantia && (!garantia.duracionValor || garantia.duracionValor <= 0)) {
-      toast.error("Indica una duración válida para la garantía.")
-      return
-    }
 
     const hoy = new Date().toISOString().slice(0, 10)
     const cierreAuto =
@@ -275,11 +180,10 @@ export function OrdenFormDialog({
 
     if (orden) {
       await actualizarOrden(orden.id, payload)
-      await guardarGarantia(orden.id, cierreAuto)
       toast.success("Orden actualizada correctamente.")
     } else {
       const nueva = await crearOrden(payload)
-      if (nueva) await guardarGarantia(nueva.id, cierreAuto)
+      if (!nueva) return
       toast.success("Orden de servicio creada correctamente.")
     }
     onOpenChange(false)
@@ -347,13 +251,6 @@ export function OrdenFormDialog({
                   <SelectContent>{ESTADOS_ORDEN.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
-              <Field>
-                <FieldLabel>Técnico responsable</FieldLabel>
-                <Select value={form.tecnicoId ?? ""} onValueChange={(v) => set("tecnicoId", (v as string) || null)} items={tecnicoSelectItems}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Sin asignar" /></SelectTrigger>
-                  <SelectContent>{tecnicosDisponibles.map((t) => <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>)}</SelectContent>
-                </Select>
-              </Field>
 
               <Field>
                 <FieldLabel htmlFor="f-solicitud">Fecha de solicitud</FieldLabel>
@@ -375,71 +272,6 @@ export function OrdenFormDialog({
                 <FieldLabel htmlFor="f-cierre">Fecha de cierre</FieldLabel>
                 <Input id="f-cierre" type="date" value={form.fechaCierre ?? ""} onChange={(e) => set("fechaCierre", e.target.value)} />
               </Field>
-
-              <div className="sm:col-span-2 rounded-lg border bg-muted/20 p-4">
-                <div className="mb-3 flex items-center gap-3">
-                  <Input
-                    id="tiene-garantia"
-                    type="checkbox"
-                    className="size-4"
-                    checked={garantia.tieneGarantia}
-                    onChange={(e) => setGarantia((prev) => ({ ...prev, tieneGarantia: e.target.checked }))}
-                  />
-                  <div>
-                    <FieldLabel htmlFor="tiene-garantia">Este servicio tiene garantía</FieldLabel>
-                    <p className="text-xs text-muted-foreground">La vigencia queda registrada y cualquier atención posterior se abrirá como una nueva orden.</p>
-                  </div>
-                </div>
-
-                {garantia.tieneGarantia ? (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <Field>
-                      <FieldLabel htmlFor="garantia-duracion">Duración</FieldLabel>
-                      <Input
-                        id="garantia-duracion"
-                        type="number"
-                        min={1}
-                        step={1}
-                        value={garantia.duracionValor ?? ""}
-                        onChange={(e) => setGarantia((prev) => ({ ...prev, duracionValor: e.target.value === "" ? null : Number(e.target.value) }))}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>Unidad</FieldLabel>
-                      <Select value={garantia.duracionUnidad} onValueChange={(v) => setGarantia((prev) => ({ ...prev, duracionUnidad: v as GarantiaForm["duracionUnidad"] }))}>
-                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Días">Días</SelectItem>
-                          <SelectItem value="Meses">Meses</SelectItem>
-                          <SelectItem value="Años">Años</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field>
-                      <FieldLabel>Cobertura</FieldLabel>
-                      <Select value={garantia.cobertura} onValueChange={(v) => setGarantia((prev) => ({ ...prev, cobertura: v }))}>
-                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Mano de obra">Mano de obra</SelectItem>
-                          <SelectItem value="Materiales">Materiales</SelectItem>
-                          <SelectItem value="Mano de obra + materiales">Mano de obra + materiales</SelectItem>
-                          <SelectItem value="Personalizada">Personalizada</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field className="sm:col-span-3">
-                      <FieldLabel htmlFor="garantia-condiciones">Condiciones de garantía</FieldLabel>
-                      <Textarea
-                        id="garantia-condiciones"
-                        value={garantia.condiciones}
-                        onChange={(e) => setGarantia((prev) => ({ ...prev, condiciones: e.target.value }))}
-                        placeholder="Condiciones, exclusiones o notas de cobertura."
-                        rows={2}
-                      />
-                    </Field>
-                  </div>
-                ) : null}
-              </div>
 
               <Field className="sm:col-span-2">
                 <FieldLabel htmlFor="falla">Descripción de la falla</FieldLabel>
@@ -467,6 +299,10 @@ export function OrdenFormDialog({
               </Field>
             </div>
           </FieldGroup>
+
+          <div className="mb-4 rounded-lg border border-dashed bg-muted/20 p-3 text-sm text-muted-foreground">
+            <strong className="text-foreground">Garantía:</strong> se configura exclusivamente al asignar el técnico desde “Pendientes de asignación”. El técnico solo podrá consultarla durante el servicio.
+          </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
