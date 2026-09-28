@@ -11,11 +11,11 @@ import { OrdenFormDialog } from "@/components/ordenes/orden-form-dialog"
 import { OrdenMateriales } from "@/components/ordenes/orden-materiales"
 import { OrdenEvidencias } from "@/components/ordenes/orden-evidencias"
 import { OrdenFirma } from "@/components/ordenes/orden-firma"
+import { OrdenParteTecnico } from "@/components/ordenes/orden-parte-tecnico"
 import { EstadoOrdenBadge, PrioridadBadge } from "@/components/status-badges"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { useStore } from "@/lib/store"
@@ -97,22 +97,35 @@ export default function OrdenDetailPage() {
         ) : null}
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Detalle del servicio / Parte técnico</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-5 rounded-lg border bg-muted/20 p-3">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Descripción de la falla
+            </span>
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">
+              {orden.descripcionFalla || "—"}
+            </p>
+          </div>
+          <OrdenParteTecnico orden={orden} />
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Detalle del servicio</CardTitle></CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <Bloque label="Descripción de la falla" value={orden.descripcionFalla} />
-            <Separator />
-            <Bloque label="Diagnóstico" value={orden.diagnostico} />
-            <Separator />
-            <Bloque label="Trabajo realizado" value={orden.trabajoRealizado} />
-            <Separator />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Bloque label="Resumen de materiales" value={orden.materiales} />
-              <Bloque label="Observaciones" value={orden.observaciones} />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="lg:col-span-2 flex flex-col gap-4">
+          <Card>
+            <CardHeader><CardTitle>Materiales y refacciones utilizados</CardTitle></CardHeader>
+            <CardContent><OrdenMateriales orden={orden} /></CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Evidencias fotográficas</CardTitle></CardHeader>
+            <CardContent><OrdenEvidencias orden={orden} /></CardContent>
+          </Card>
+        </div>
 
         <div className="flex flex-col gap-4">
           <Card>
@@ -157,31 +170,12 @@ export default function OrdenDetailPage() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Materiales y refacciones utilizados</CardTitle></CardHeader>
-        <CardContent><OrdenMateriales orden={orden} /></CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>Evidencias fotográficas</CardTitle></CardHeader>
-        <CardContent><OrdenEvidencias orden={orden} /></CardContent>
-      </Card>
-
-      <Card>
         <CardHeader><CardTitle>Firmas y cierre del servicio</CardTitle></CardHeader>
         <CardContent><OrdenFirma orden={orden} /></CardContent>
       </Card>
 
       {puedeGestionarOrden ? <OrdenFormDialog open={editOpen} onOpenChange={setEditOpen} orden={orden} /> : null}
     </>
-  )
-}
-
-function Bloque({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
-      <p className="text-sm leading-relaxed text-pretty">{value || "—"}</p>
-    </div>
   )
 }
 
