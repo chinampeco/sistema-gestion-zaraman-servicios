@@ -179,15 +179,16 @@ export default function CotizacionesPage() {
                           >
                             <Pencil />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => setDeleting(c)}
-                            aria-label="Eliminar cotización"
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 />
-                          </Button>
+                         {c.estado === "Enviada" && (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => setDelete(c)}
+                              aria-label="Eliminar cotización"
+                            >
+                              <Trash2 />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
