@@ -14,6 +14,7 @@ export type ClaveModulo =
   | "whatsapp"
   | "clientes"
   | "equipos"
+  | "inventario"
   | "tickets"
   | "cotizaciones"
   | "ordenes"
@@ -33,6 +34,7 @@ export const RUTA_MODULO: Record<ClaveModulo, string> = {
   whatsapp: "/whatsapp",
   clientes: "/clientes",
   equipos: "/equipos",
+  inventario: "/inventario",
   tickets: "/tickets",
   cotizaciones: "/cotizaciones",
   ordenes: "/ordenes",
@@ -56,6 +58,7 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
     "whatsapp",
     "clientes",
     "equipos",
+    "inventario",
     "tickets",
     "cotizaciones",
     "ordenes",
@@ -74,6 +77,7 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
     "whatsapp",
     "clientes",
     "equipos",
+    "inventario",
     "tickets",
     "cotizaciones",
     "ordenes",
@@ -92,6 +96,7 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
     "whatsapp",
     "clientes",
     "equipos",
+    "inventario",
     "tickets",
     "cotizaciones",
     "ordenes",
@@ -112,6 +117,7 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
     "whatsapp",
     "clientes",
     "equipos",
+    "inventario",
     "tickets",
     "cotizaciones",
     "ordenes",
