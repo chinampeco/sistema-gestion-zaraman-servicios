@@ -101,6 +101,20 @@ export function TicketFormDialog({
     return lista
   }, [equipos, form.clienteId, form.equipoId])
 
+  const clienteSeleccionado = React.useMemo(
+    () => clientes.find((c) => c.id === form.clienteId),
+    [clientes, form.clienteId],
+  )
+
+  const equipoSeleccionado = React.useMemo(
+    () => equiposCliente.find((e) => e.id === form.equipoId),
+    [equiposCliente, form.equipoId],
+  )
+
+  const etiquetaEquipo = equipoSeleccionado
+    ? `${equipoSeleccionado.tipo} · ${equipoSeleccionado.marca} ${equipoSeleccionado.modelo}`.trim()
+    : undefined
+
   const handleClienteChange = (clienteId: string) => {
     const cliente = clientes.find((c) => c.id === clienteId)
     setForm((prev) => ({
@@ -155,7 +169,9 @@ export function TicketFormDialog({
                 <FieldLabel>Cliente</FieldLabel>
                 <Select value={form.clienteId} onValueChange={handleClienteChange}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecciona un cliente" />
+                    <SelectValue placeholder="Selecciona un cliente">
+                      {clienteSeleccionado?.nombre}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {clientes.map((c) => (
@@ -180,7 +196,9 @@ export function TicketFormDialog({
                           ? "Selecciona un equipo"
                           : "Primero elige un cliente"
                       }
-                    />
+                    >
+                      {etiquetaEquipo}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {equiposCliente.map((e) => (
