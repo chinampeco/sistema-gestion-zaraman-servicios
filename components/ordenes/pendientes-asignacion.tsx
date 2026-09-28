@@ -29,9 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-// Sección dentro de Órdenes de servicio con los trabajos aceptados por el
-// cliente que todavía no tienen técnico asignado. Solo la ven los roles que
-// pueden coordinar (Administrador, Coordinador, Supervisor).
+// Trabajos aceptados por el cliente que todavía no tienen técnico asignado.
 export function PendientesAsignacion() {
   const {
     ordenes,
@@ -41,7 +39,6 @@ export function PendientesAsignacion() {
     tecnicos,
     usuarioActual,
     actualizarOrden,
-    actualizarCotizacion,
   } = useStore()
 
   const [asignando, setAsignando] = React.useState<OrdenServicio | null>(null)
@@ -50,16 +47,25 @@ export function PendientesAsignacion() {
 
   if (!puedeReasignarOrdenes(usuarioActual.rol)) return null
 
+  // Las órdenes creadas desde el portal entran como "Pendiente" y sin técnico.
+  // También aceptamos el estado antiguo "Pendiente de asignación" para no
+  // perder órdenes creadas por una versión anterior.
   const pendientes = ordenes
-    .filter((o) => o.estado === "Pendiente de asignación")
+    .filter(
+      (o) =>
+        (o.estado === "Pendiente" || o.estado === "Pendiente de asignación") &&
+        !o.tecnicoId,
+    )
     .sort((a, b) => a.folio.localeCompare(b.folio))
 
   const nombreCliente = (id: string) =>
     clientes.find((c) => c.id === id)?.nombre ?? "—"
+
   const nombreEquipo = (id: string) => {
     const e = equipos.find((x) => x.id === id)
     return e ? `${e.tipo} · ${e.marca} ${e.modelo}`.trim() : "General"
   }
+
   const cotizacionDe = (o: OrdenServicio) =>
     cotizaciones.find((c) => c.ordenId === o.id) ?? null
 
@@ -80,14 +86,17 @@ export function PendientesAsignacion() {
       usuarioId: usuarioActual.id,
       usuarioNombre: usuarioActual.nombre,
     }
-    await actualizarOrden(asignando.id, {
+
+    const actualizada = await actualizarOrden(asignando.id, {
       tecnicoId,
       estado: "Asignada",
       historial: [...asignando.historial, evento],
     })
 
-    // La cotización aceptada permanece como "Aceptada" al asignar el técnico.
-    const cot = cotizacionDeOrden(asignando)
+    if (!actualizada) {
+      setGuardando(false)
+      return
+    }
 
     const tecnico = tecnicos.find((t) => t.id === tecnicoId)
     toast.success(
@@ -211,7 +220,7 @@ export function PendientesAsignacion() {
               onClick={confirmarAsignacion}
               disabled={!tecnicoId || guardando}
             >
-              Asignar y crear orden
+              {guardando ? "Guardando…" : "Asignar técnico"}
             </Button>
           </DialogFooter>
         </DialogContent>
