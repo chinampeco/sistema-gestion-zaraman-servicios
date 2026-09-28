@@ -144,7 +144,7 @@ export function ReporteServicioPrint({ orden, cliente, equipo, tecnico }: Report
               <div className="print-signature-box">
                 {orden.firmaCliente ? <img src={orden.firmaCliente} alt="Firma del cliente" /> : null}
               </div>
-              <div className="print-signature-line">Firma del cliente</div>
+              <div className="print-signature-line">Firma de conformidad del cliente</div>
               <div className="print-signature-meta">
                 {orden.firmaFecha ? `Fecha y hora: ${formatFechaHora(orden.firmaFecha)}` : "Pendiente de firma"}
               </div>
@@ -153,7 +153,7 @@ export function ReporteServicioPrint({ orden, cliente, equipo, tecnico }: Report
               <div className="print-signature-box">
                 {firmaTecnico?.firmaTecnico ? <img src={firmaTecnico.firmaTecnico} alt="Firma del técnico" /> : null}
               </div>
-              <div className="print-signature-line">Firma del técnico</div>
+              <div className="print-signature-line">Firma de cierre del técnico</div>
               <div className="print-signature-meta">{firmaTecnico?.usuarioNombre ?? tecnico?.nombre ?? "Sin firma"}</div>
               <div className="print-signature-meta">
                 {firmaTecnico?.firmaTecnicoFecha
@@ -207,14 +207,16 @@ export function ReporteServicioPrint({ orden, cliente, equipo, tecnico }: Report
         .print-evidence-grid figure { margin:0; page-break-inside:avoid; break-inside:avoid; }
         .print-evidence-grid img { width:100%; height:92px; object-fit:cover; border:1px solid #bbb; }
         .print-evidence-grid figcaption { font-size:6.5px; margin-top:2px; }
+        .print-signatures { margin-top:10px; }
+        .print-signatures h2 { font-size:9.5px; margin-bottom:6px; padding-bottom:4px; border-bottom:1.5px solid #999; }
         .print-signature-grid { display:grid; grid-template-columns:1fr 1fr; gap:35px; }
-        .print-signature-box { height:48px; border-bottom:1px solid #222; display:flex; align-items:flex-end; justify-content:center; }
-        .print-signature-box img { max-width:90%; max-height:44px; object-fit:contain; }
-        .print-signature-line { text-align:center; font-size:7.5px; margin-top:2px; font-weight:700; }
-        .print-signature-meta { text-align:center; font-size:6.5px; color:#666; margin-top:1px; }
-        .print-signature-legend { margin-top:8px; padding:5px 7px; border:1px solid #bbb; background:#f7f7f7; page-break-inside:avoid; break-inside:avoid; }
-        .print-signature-legend strong { display:block; font-size:7px; margin-bottom:2px; }
-        .print-signature-legend p { margin:0; font-size:6.8px; line-height:1.3; }
+        .print-signature-box { height:56px; border-bottom:1px solid #222; display:flex; align-items:flex-end; justify-content:center; }
+        .print-signature-box img { max-width:90%; max-height:50px; object-fit:contain; }
+        .print-signature-line { text-align:center; font-size:8px; margin-top:3px; font-weight:700; }
+        .print-signature-meta { text-align:center; font-size:7px; color:#666; margin-top:2px; }
+        .print-signature-legend { margin-top:10px; padding:7px 9px; border:1px solid #999; background:#f7f7f7; page-break-inside:avoid; break-inside:avoid; }
+        .print-signature-legend strong { display:block; font-size:7.5px; margin-bottom:3px; letter-spacing:.03em; }
+        .print-signature-legend p { margin:0; font-size:7.2px; line-height:1.35; }
         .print-footer { display:flex; justify-content:space-between; margin-top:8px; padding-top:4px; border-top:1px solid #bbb; font-size:6.5px; color:#666; }
         @media print {
           @page { size:A4; margin:8mm; }
