@@ -97,13 +97,13 @@ export async function POST(request: Request) {
 
   // ---- aceptar / rechazar --------------------------------------------------
   // Idempotencia: si ya fue decidida, devolvemos el estado actual sin duplicar.
- if (cot.estado === "Aceptada") {
-  return NextResponse.json({
-    ok: true,
-    sinCambios: true,
-    estado: cot.estado
-  })
-}
+  if (cot.estado === "Aceptada") {
+    return NextResponse.json({
+      ok: true,
+      sinCambios: true,
+      estado: cot.estado,
+    })
+  }
   if (cot.estado === "Rechazada") {
     return NextResponse.json({ ok: true, sinCambios: true, estado: cot.estado })
   }
@@ -134,8 +134,7 @@ export async function POST(request: Request) {
   }
 
   // accion === "aceptar": marca la cotización y genera la orden de servicio
-  // en estado "Pendiente de asignación" (sin técnico). El vínculo 1→1 se
-  // garantiza con el índice único cotizaciones.orden_id.
+  // sin técnico asignado. La relación 1→1 se guarda en cotizaciones.orden_id.
   if (cot.orden_id) {
     // Ya tiene orden: solo aseguramos el estado aceptado.
     await admin
@@ -161,17 +160,20 @@ export async function POST(request: Request) {
     )
     .join("\n")
 
+  // Usamos únicamente columnas que forman parte del esquema actual de
+  // ordenes_servicio. La relación con la cotización se guarda en cotizaciones.orden_id.
   const { data: ordenRow, error: ordenError } = await admin
     .from("ordenes_servicio")
     .insert({
       folio,
       cliente_id: cot.cliente_id,
       equipo_id: cot.equipo_id ?? null,
-      cotizacion_id: cot.id,
       fecha_solicitud: hoyISO(),
       tipo_servicio: "Correctivo",
       prioridad: "Normal",
-      estado: "Pendiente de asignación",
+      // "Pendiente" es el estado existente en el esquema; la pantalla de
+      // pendientes también identifica estas órdenes cuando no tienen técnico.
+      estado: "Pendiente",
       descripcion_falla: `Generada desde cotización ${cot.folio} aceptada por el cliente.`,
       materiales,
       observaciones: cot.observaciones ?? "",
@@ -179,7 +181,7 @@ export async function POST(request: Request) {
       tecnico_id: null,
       historial: [
         {
-          estado: "Pendiente de asignación",
+          estado: "Pendiente",
           fecha: ahora,
           usuarioId: user.id,
           usuarioNombre: usuario,
@@ -192,6 +194,7 @@ export async function POST(request: Request) {
     .single()
 
   if (ordenError || !ordenRow) {
+    console.error("Error al generar orden desde cotización:", ordenError)
     return NextResponse.json(
       { error: "No se pudo generar la orden de servicio." },
       { status: 500 },
