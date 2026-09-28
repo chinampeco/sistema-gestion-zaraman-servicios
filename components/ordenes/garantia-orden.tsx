@@ -43,9 +43,11 @@ interface GastoGarantia {
   observaciones: string
 }
 
-const GASTO_VACIO = {
+type NuevoGasto = Omit<GastoGarantia, "id" | "total" | "fecha">
+
+const GASTO_VACIO: NuevoGasto = {
   concepto: "",
-  categoria: "Material" as GastoGarantia["categoria"],
+  categoria: "Material",
   cantidad: 1,
   costoUnitario: 0,
   observaciones: "",
@@ -70,7 +72,7 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
   const [atencionOpen, setAtencionOpen] = React.useState(false)
   const [gastoOpen, setGastoOpen] = React.useState(false)
   const [motivo, setMotivo] = React.useState("")
-  const [gasto, setGasto] = React.useState(GASTO_VACIO)
+  const [gasto, setGasto] = React.useState<NuevoGasto>(GASTO_VACIO)
   const [guardando, setGuardando] = React.useState(false)
 
   const cargar = React.useCallback(async () => {
@@ -196,10 +198,7 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
     }
     const gastos = [...garantia.gastos, nuevoGasto]
 
-    const { error } = await supabase
-      .from("orden_garantias")
-      .update({ gastos })
-      .eq("id", garantia.id)
+    const { error } = await supabase.from("orden_garantias").update({ gastos }).eq("id", garantia.id)
 
     if (error) {
       toast.error("No se pudo registrar el gasto.")
@@ -214,9 +213,7 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
 
   const totalGastos = gastoTotal(garantia?.gastos ?? [])
 
-  if (cargando) {
-    return <div className="text-sm text-muted-foreground">Cargando garantía…</div>
-  }
+  if (cargando) return <div className="text-sm text-muted-foreground">Cargando garantía…</div>
 
   return (
     <>
@@ -235,9 +232,7 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
               <Dato label="Vencimiento">{formatFecha(garantia.fecha_fin)}</Dato>
               <Dato label="Cobertura">{garantia.cobertura || "No especificada"}</Dato>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Esta orden no tiene garantía registrada.</p>
-          )}
+          ) : <p className="text-sm text-muted-foreground">Esta orden no tiene garantía registrada.</p>}
 
           {garantia?.condiciones ? (
             <div className="rounded-lg border bg-muted/20 p-3 text-sm">
@@ -247,9 +242,7 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
           ) : null}
 
           {esAtencionGarantia && garantia?.orden_origen_id ? (
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
-              Esta orden fue generada como atención de garantía. La orden original permanece intacta.
-            </div>
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">Esta orden fue generada como atención de garantía. La orden original permanece intacta.</div>
           ) : null}
 
           {esAtencionGarantia ? (
@@ -261,7 +254,7 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
                 </div>
                 <span className="text-lg font-semibold">${totalGastos.toFixed(2)}</span>
               </div>
-              {garantia?.gastos.length ? (
+              {garantia.gastos.length ? (
                 <div className="mb-3 divide-y rounded-md border">
                   {garantia.gastos.map((item) => (
                     <div key={item.id} className="flex items-center justify-between gap-3 p-3 text-sm">
@@ -278,9 +271,7 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
             </div>
           ) : null}
 
-          {puedeGenerarAtencion ? (
-            <Button onClick={() => setAtencionOpen(true)}><Wrench data-icon="inline-start" />Nueva atención por garantía</Button>
-          ) : null}
+          {puedeGenerarAtencion ? <Button onClick={() => setAtencionOpen(true)}><Wrench data-icon="inline-start" />Nueva atención por garantía</Button> : null}
         </CardContent>
       </Card>
 
