@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { CheckCircle2, UserPlus } from "lucide-react"
+import { CheckCircle2, ShieldCheck, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
 import { useStore } from "@/lib/store"
@@ -21,6 +21,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -28,8 +31,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { createClient } from "@/lib/supabase/client"
+
+type GarantiaConfig = {
+  tieneGarantia: boolean
+  duracionValor: number | null
+  duracionUnidad: "Días" | "Meses" | "Años"
+  cobertura: string
+  condiciones: string
+  esAtencionGarantia: boolean
+  ordenOrigenId: string | null
+}
+
+const GARANTIA_DEFAULT: GarantiaConfig = {
+  tieneGarantia: false,
+  duracionValor: null,
+  duracionUnidad: "Meses",
+  cobertura: "Mano de obra + materiales",
+  condiciones: "",
+  esAtencionGarantia: false,
+  ordenOrigenId: null,
+}
+
+function sumarGarantia(fechaInicio: string, valor: number, unidad: GarantiaConfig["duracionUnidad"]) {
+  const fecha = new Date(`${fechaInicio}T00:00:00`)
+  if (unidad === "Días") fecha.setDate(fecha.getDate() + valor - 1)
+  if (unidad === "Meses") fecha.setMonth(fecha.getMonth() + valor)
+  if (unidad === "Años") fecha.setFullYear(fecha.getFullYear() + valor)
+  if (unidad !== "Días") fecha.setDate(fecha.getDate() - 1)
+  return fecha.toISOString().slice(0, 10)
+}
 
 // Trabajos aceptados por el cliente que todavía no tienen técnico asignado.
+// La garantía del servicio se define aquí por el supervisor/coordinador/admin,
+// no durante la captura técnica.
 export function PendientesAsignacion() {
   const {
     ordenes,
@@ -40,9 +75,11 @@ export function PendientesAsignacion() {
     usuarioActual,
     actualizarOrden,
   } = useStore()
+  const supabase = React.useMemo(() => createClient(), [])
 
   const [asignando, setAsignando] = React.useState<OrdenServicio | null>(null)
   const [tecnicoId, setTecnicoId] = React.useState<string>("")
+  const [garantia, setGarantia] = React.useState<GarantiaConfig>(GARANTIA_DEFAULT)
   const [guardando, setGuardando] = React.useState(false)
 
   if (!puedeReasignarOrdenes(usuarioActual.rol)) return null
@@ -68,13 +105,45 @@ export function PendientesAsignacion() {
 
   const tecnicosActivos = tecnicos.filter((t) => t.activo)
 
-  const abrir = (o: OrdenServicio) => {
+  const abrir = async (o: OrdenServicio) => {
     setTecnicoId("")
+    setGarantia(GARANTIA_DEFAULT)
     setAsignando(o)
+
+    const { data, error } = await supabase
+      .from("orden_garantias")
+      .select("tiene_garantia, duracion_valor, duracion_unidad, cobertura, condiciones, orden_origen_id")
+      .eq("orden_id", o.id)
+      .maybeSingle()
+
+    if (error) {
+      console.warn("No se pudo cargar la garantía de la orden:", error.message)
+      return
+    }
+
+    if (data) {
+      setGarantia({
+        tieneGarantia: Boolean(data.tiene_garantia),
+        duracionValor: data.duracion_valor == null ? null : Number(data.duracion_valor),
+        duracionUnidad: (data.duracion_unidad ?? "Meses") as GarantiaConfig["duracionUnidad"],
+        cobertura: data.cobertura ?? GARANTIA_DEFAULT.cobertura,
+        condiciones: data.condiciones ?? "",
+        esAtencionGarantia: Boolean(data.orden_origen_id),
+        ordenOrigenId: data.orden_origen_id ?? null,
+      })
+    }
   }
 
   const confirmarAsignacion = async () => {
     if (!asignando || !tecnicoId || guardando) return
+
+    if (!garantia.esAtencionGarantia && garantia.tieneGarantia) {
+      if (!garantia.duracionValor || garantia.duracionValor <= 0) {
+        toast.error("Indica una duración válida para la garantía.")
+        return
+      }
+    }
+
     setGuardando(true)
 
     const evento: HistorialEvento = {
@@ -91,12 +160,37 @@ export function PendientesAsignacion() {
         historial: [...asignando.historial, evento],
       })
 
+      const fechaInicio = null
+      const fechaFin = null
+
+      const { error: garantiaError } = await supabase.from("orden_garantias").upsert(
+        {
+          orden_id: asignando.id,
+          orden_origen_id: garantia.ordenOrigenId,
+          tiene_garantia: garantia.tieneGarantia,
+          duracion_valor: garantia.tieneGarantia ? garantia.duracionValor : null,
+          duracion_unidad: garantia.tieneGarantia ? garantia.duracionUnidad : null,
+          fecha_inicio: fechaInicio,
+          fecha_fin: fechaFin,
+          cobertura: garantia.tieneGarantia ? garantia.cobertura : null,
+          condiciones: garantia.tieneGarantia ? garantia.condiciones : null,
+          resultado: garantia.esAtencionGarantia ? "Aprobada" : "Pendiente",
+        },
+        { onConflict: "orden_id" },
+      )
+
+      if (garantiaError) {
+        toast.error("La orden fue asignada, pero no se pudo guardar la configuración de garantía.")
+        return
+      }
+
       const tecnico = tecnicos.find((t) => t.id === tecnicoId)
       toast.success(
         `Orden ${asignando.folio} asignada a ${tecnico?.nombre ?? "el técnico"}.`,
       )
       setAsignando(null)
       setTecnicoId("")
+      setGarantia(GARANTIA_DEFAULT)
     } catch {
       toast.error("No se pudo asignar el técnico. Intenta nuevamente.")
     } finally {
@@ -163,7 +257,7 @@ export function PendientesAsignacion() {
                         </span>
                       )}
                     </div>
-                    <Button size="sm" onClick={() => abrir(o)} className="shrink-0">
+                    <Button size="sm" onClick={() => void abrir(o)} className="shrink-0">
                       <UserPlus data-icon="inline-start" />
                       Asignar técnico
                     </Button>
@@ -177,46 +271,162 @@ export function PendientesAsignacion() {
 
       <Dialog
         open={asignando !== null}
-        onOpenChange={(open) => !open && setAsignando(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAsignando(null)
+            setTecnicoId("")
+            setGarantia(GARANTIA_DEFAULT)
+          }
+        }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Asignar técnico</DialogTitle>
             <DialogDescription>
               Selecciona al técnico responsable de la orden{" "}
-              <span className="font-mono">{asignando?.folio}</span>. Al asignarlo,
-              la orden pasará a estado “Asignada” y el técnico recibirá el aviso.
+              <span className="font-mono">{asignando?.folio}</span> y define la garantía
+              que ZARAMAN otorgará al servicio.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium">Técnico responsable</label>
-            <Select value={tecnicoId} onValueChange={(v) => setTecnicoId(v ?? "")}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona un técnico">
-                  {(value) => {
-                    const tecnico = tecnicos.find((t) => t.id === value)
-                    return tecnico
-                      ? `${tecnico.nombre} · ${tecnico.especialidad || tecnico.rol}`
-                      : "Selecciona un técnico"
-                  }}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {tecnicosActivos.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    No hay técnicos activos
-                  </SelectItem>
-                ) : (
-                  tecnicosActivos.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.nombre} · {t.especialidad || t.rol}
+          <FieldGroup>
+            <Field>
+              <FieldLabel>Técnico responsable</FieldLabel>
+              <Select value={tecnicoId} onValueChange={(v) => setTecnicoId(v ?? "")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un técnico">
+                    {(value) => {
+                      const tecnico = tecnicos.find((t) => t.id === value)
+                      return tecnico
+                        ? `${tecnico.nombre} · ${tecnico.especialidad || tecnico.rol}`
+                        : "Selecciona un técnico"
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {tecnicosActivos.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      No hay técnicos activos
                     </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+                  ) : (
+                    tecnicosActivos.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.nombre} · {t.especialidad || t.rol}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <div className="rounded-lg border bg-muted/20 p-4">
+              <div className="mb-3 flex items-start gap-3">
+                <ShieldCheck className="mt-0.5 size-5 text-primary" />
+                <div>
+                  <div className="font-medium">Garantía del servicio</div>
+                  {garantia.esAtencionGarantia ? (
+                    <p className="text-xs text-muted-foreground">
+                      Esta orden ya corresponde a una atención por garantía. La garantía original no se modifica.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      La garantía comienza únicamente cuando el servicio quede terminado y firmado.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {garantia.esAtencionGarantia ? (
+                <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-sm">
+                  <div className="font-medium">Atención por garantía</div>
+                  <div className="mt-1 text-muted-foreground">
+                    Orden origen: <span className="font-mono">{garantia.ordenOrigenId}</span>
+                  </div>
+                  <div className="mt-1 text-muted-foreground">Sin nueva vigencia comercial.</div>
+                </div>
+              ) : (
+                <>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                    <Input
+                      id="asignacion-tiene-garantia"
+                      type="checkbox"
+                      className="size-4"
+                      checked={garantia.tieneGarantia}
+                      onChange={(e) => setGarantia((prev) => ({ ...prev, tieneGarantia: e.target.checked }))}
+                    />
+                    Este servicio tiene garantía
+                  </label>
+
+                  {garantia.tieneGarantia ? (
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="asignacion-garantia-duracion">Duración</FieldLabel>
+                        <Input
+                          id="asignacion-garantia-duracion"
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={garantia.duracionValor ?? ""}
+                          onChange={(e) =>
+                            setGarantia((prev) => ({
+                              ...prev,
+                              duracionValor: e.target.value === "" ? null : Number(e.target.value),
+                            }))
+                          }
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel>Unidad</FieldLabel>
+                        <Select
+                          value={garantia.duracionUnidad}
+                          onValueChange={(v) =>
+                            setGarantia((prev) => ({
+                              ...prev,
+                              duracionUnidad: v as GarantiaConfig["duracionUnidad"],
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Días">Días</SelectItem>
+                            <SelectItem value="Meses">Meses</SelectItem>
+                            <SelectItem value="Años">Años</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field className="sm:col-span-2">
+                        <FieldLabel>Cobertura</FieldLabel>
+                        <Select
+                          value={garantia.cobertura}
+                          onValueChange={(v) => setGarantia((prev) => ({ ...prev, cobertura: v }))}
+                        >
+                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Mano de obra">Mano de obra</SelectItem>
+                            <SelectItem value="Materiales">Materiales</SelectItem>
+                            <SelectItem value="Mano de obra + materiales">Mano de obra + materiales</SelectItem>
+                            <SelectItem value="Personalizada">Personalizada</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field className="sm:col-span-2">
+                        <FieldLabel htmlFor="asignacion-garantia-condiciones">Condiciones</FieldLabel>
+                        <Textarea
+                          id="asignacion-garantia-condiciones"
+                          value={garantia.condiciones}
+                          onChange={(e) => setGarantia((prev) => ({ ...prev, condiciones: e.target.value }))}
+                          placeholder="Condiciones, exclusiones o notas de cobertura."
+                          rows={3}
+                        />
+                      </Field>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-muted-foreground">Esta orden quedará registrada como “Sin garantía”.</p>
+                  )}
+                </>
+              )}
+            </div>
+          </FieldGroup>
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
@@ -224,7 +434,7 @@ export function PendientesAsignacion() {
               onClick={confirmarAsignacion}
               disabled={!tecnicoId || guardando}
             >
-              {guardando ? "Guardando…" : "Asignar técnico"}
+              {guardando ? "Guardando…" : "Asignar técnico y guardar"}
             </Button>
           </DialogFooter>
         </DialogContent>
