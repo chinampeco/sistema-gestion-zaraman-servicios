@@ -4,7 +4,7 @@ import * as React from "react"
 import { Printer } from "lucide-react"
 
 import type { Cliente, Equipo, OrdenServicio, Tecnico } from "@/lib/types"
-import { formatFecha, formatHora } from "@/lib/format"
+import { formatFecha, formatFechaHora, formatHora } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { getFirmaTecnico } from "@/components/ordenes/orden-firma"
 
@@ -145,16 +145,32 @@ export function ReporteServicioPrint({ orden, cliente, equipo, tecnico }: Report
                 {orden.firmaCliente ? <img src={orden.firmaCliente} alt="Firma del cliente" /> : null}
               </div>
               <div className="print-signature-line">Firma del cliente</div>
-              {orden.firmaFecha ? <div className="print-muted">Fecha: {formatFecha(orden.firmaFecha)}</div> : null}
+              <div className="print-signature-meta">
+                {orden.firmaFecha ? `Fecha y hora: ${formatFechaHora(orden.firmaFecha)}` : "Pendiente de firma"}
+              </div>
             </div>
             <div>
               <div className="print-signature-box">
                 {firmaTecnico?.firmaTecnico ? <img src={firmaTecnico.firmaTecnico} alt="Firma del técnico" /> : null}
               </div>
               <div className="print-signature-line">Firma del técnico</div>
-              <div className="print-muted">{firmaTecnico?.usuarioNombre ?? tecnico?.nombre ?? "Sin firma"}</div>
-              {firmaTecnico?.firmaTecnicoFecha ? <div className="print-muted">Fecha: {formatFecha(firmaTecnico.firmaTecnicoFecha)}</div> : null}
+              <div className="print-signature-meta">{firmaTecnico?.usuarioNombre ?? tecnico?.nombre ?? "Sin firma"}</div>
+              <div className="print-signature-meta">
+                {firmaTecnico?.firmaTecnicoFecha
+                  ? `Fecha y hora: ${formatFechaHora(firmaTecnico.firmaTecnicoFecha)}`
+                  : "Pendiente de firma"}
+              </div>
             </div>
+          </div>
+
+          <div className="print-signature-legend">
+            <strong>LEYENDA DE FIRMAS Y CIERRE</strong>
+            <p>
+              La firma del cliente acredita la conformidad con el servicio realizado y bloquea la orden para evitar
+              modificaciones posteriores en la orden, materiales, evidencias y firma del cliente. La firma del técnico
+              asignado confirma el cierre operativo del servicio. Una vez registradas ambas firmas, la orden queda
+              concluida y cerrada.
+            </p>
           </div>
         </section>
 
@@ -194,7 +210,11 @@ export function ReporteServicioPrint({ orden, cliente, equipo, tecnico }: Report
         .print-signature-grid { display:grid; grid-template-columns:1fr 1fr; gap:35px; }
         .print-signature-box { height:48px; border-bottom:1px solid #222; display:flex; align-items:flex-end; justify-content:center; }
         .print-signature-box img { max-width:90%; max-height:44px; object-fit:contain; }
-        .print-signature-line { text-align:center; font-size:7.5px; margin-top:2px; }
+        .print-signature-line { text-align:center; font-size:7.5px; margin-top:2px; font-weight:700; }
+        .print-signature-meta { text-align:center; font-size:6.5px; color:#666; margin-top:1px; }
+        .print-signature-legend { margin-top:8px; padding:5px 7px; border:1px solid #bbb; background:#f7f7f7; page-break-inside:avoid; break-inside:avoid; }
+        .print-signature-legend strong { display:block; font-size:7px; margin-bottom:2px; }
+        .print-signature-legend p { margin:0; font-size:6.8px; line-height:1.3; }
         .print-footer { display:flex; justify-content:space-between; margin-top:8px; padding-top:4px; border-top:1px solid #bbb; font-size:6.5px; color:#666; }
         @media print {
           @page { size:A4; margin:8mm; }
