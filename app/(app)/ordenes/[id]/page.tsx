@@ -94,12 +94,22 @@ export default function OrdenDetailPage() {
           title={orden.folio}
           description={cliente?.nombre}
           actions={
-            puedeEditarOrden ? (
-              <Button variant="outline" onClick={() => setEditOpen(true)}>
-                <Pencil data-icon="inline-start" />
-                Editar
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                render={<Link href={`/ordenes/${orden.id}/reporte`} />}
+                nativeButton={false}
+              >
+                <FileText data-icon="inline-start" />
+                Reporte PDF
               </Button>
-            ) : null
+              {puedeEditarOrden ? (
+                <Button variant="outline" onClick={() => setEditOpen(true)}>
+                  <Pencil data-icon="inline-start" />
+                  Editar
+                </Button>
+              ) : null}
+            </div>
           }
         />
       </div>
