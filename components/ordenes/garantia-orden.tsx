@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useStore } from "@/lib/store"
 import { hoyISO, formatFecha } from "@/lib/format"
+import { puedeReasignarOrdenes } from "@/lib/permisos"
 import { createClient } from "@/lib/supabase/client"
 import type { OrdenServicio } from "@/lib/types"
 
@@ -75,6 +76,8 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
   const [gasto, setGasto] = React.useState<NuevoGasto>(GASTO_VACIO)
   const [guardando, setGuardando] = React.useState(false)
 
+  const puedeAdministrarGarantia = puedeReasignarOrdenes(usuarioActual.rol)
+
   const cargar = React.useCallback(async () => {
     setCargando(true)
     const { data, error } = await supabase
@@ -101,12 +104,17 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
   const estado = calcularVigencia(garantia)
   const esAtencionGarantia = Boolean(garantia?.orden_origen_id)
   const puedeGenerarAtencion =
+    puedeAdministrarGarantia &&
     !esAtencionGarantia &&
     Boolean(garantia?.tiene_garantia) &&
     estado === "Vigente" &&
     orden.estado === "Terminada"
 
   const crearAtencionGarantia = async () => {
+    if (!puedeAdministrarGarantia) {
+      toast.error("Solo supervisión puede generar una atención por garantía.")
+      return
+    }
     if (!garantia || !motivo.trim()) {
       toast.error("Describe el motivo de la atención de garantía.")
       return
@@ -176,6 +184,10 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
   }
 
   const guardarGasto = async () => {
+    if (!puedeAdministrarGarantia) {
+      toast.error("Solo supervisión puede registrar gastos internos de garantía.")
+      return
+    }
     if (!garantia || !esAtencionGarantia || !gasto.concepto.trim()) {
       toast.error("Indica el concepto del gasto.")
       return
@@ -267,7 +279,11 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
                   ))}
                 </div>
               ) : null}
-              <Button variant="outline" size="sm" onClick={() => setGastoOpen(true)}><Plus data-icon="inline-start" />Registrar gasto</Button>
+              {puedeAdministrarGarantia ? (
+                <Button variant="outline" size="sm" onClick={() => setGastoOpen(true)}><Plus data-icon="inline-start" />Registrar gasto</Button>
+              ) : (
+                <p className="text-xs text-muted-foreground">Solo supervisión puede registrar o modificar estos gastos internos.</p>
+              )}
             </div>
           ) : null}
 
@@ -275,69 +291,73 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
         </CardContent>
       </Card>
 
-      <Dialog open={atencionOpen} onOpenChange={setAtencionOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nueva atención por garantía</DialogTitle>
-            <DialogDescription>Se creará una nueva orden vinculada a {orden.folio}. La orden original no se modificará.</DialogDescription>
-          </DialogHeader>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="motivo-garantia">Motivo reportado</FieldLabel>
-              <Textarea id="motivo-garantia" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Describe la falla o motivo por el que el cliente solicita la garantía." rows={4} />
-            </Field>
-          </FieldGroup>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAtencionOpen(false)}>Cancelar</Button>
-            <Button disabled={guardando || !motivo.trim()} onClick={crearAtencionGarantia}>{guardando ? "Creando…" : "Crear atención"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {puedeAdministrarGarantia ? (
+        <>
+          <Dialog open={atencionOpen} onOpenChange={setAtencionOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nueva atención por garantía</DialogTitle>
+                <DialogDescription>Se creará una nueva orden vinculada a {orden.folio}. La orden original no se modificará.</DialogDescription>
+              </DialogHeader>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="motivo-garantia">Motivo reportado</FieldLabel>
+                  <Textarea id="motivo-garantia" value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Describe la falla o motivo por el que el cliente solicita la garantía." rows={4} />
+                </Field>
+              </FieldGroup>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAtencionOpen(false)}>Cancelar</Button>
+                <Button disabled={guardando || !motivo.trim()} onClick={crearAtencionGarantia}>{guardando ? "Creando…" : "Crear atención"}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-      <Dialog open={gastoOpen} onOpenChange={setGastoOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Registrar gasto de garantía</DialogTitle>
-            <DialogDescription>Este importe se registra como costo interno de ZARAMAN y no modifica el cobro al cliente.</DialogDescription>
-          </DialogHeader>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="gasto-concepto">Concepto</FieldLabel>
-              <Input id="gasto-concepto" value={gasto.concepto} onChange={(e) => setGasto((prev) => ({ ...prev, concepto: e.target.value }))} placeholder="Ej. Contactor, combustible, traslado…" />
-            </Field>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <Field>
-                <FieldLabel>Categoría</FieldLabel>
-                <Select value={gasto.categoria} onValueChange={(v) => setGasto((prev) => ({ ...prev, categoria: v as GastoGarantia["categoria"] }))}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Material">Material</SelectItem>
-                    <SelectItem value="Traslado">Traslado</SelectItem>
-                    <SelectItem value="Mano de obra">Mano de obra</SelectItem>
-                    <SelectItem value="Otro">Otro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="gasto-cantidad">Cantidad</FieldLabel>
-                <Input id="gasto-cantidad" type="number" min={0.01} step="0.01" value={gasto.cantidad} onChange={(e) => setGasto((prev) => ({ ...prev, cantidad: Number(e.target.value) }))} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="gasto-costo">Costo unitario</FieldLabel>
-                <Input id="gasto-costo" type="number" min={0} step="0.01" value={gasto.costoUnitario} onChange={(e) => setGasto((prev) => ({ ...prev, costoUnitario: Number(e.target.value) }))} />
-              </Field>
-            </div>
-            <Field>
-              <FieldLabel htmlFor="gasto-observaciones">Observaciones</FieldLabel>
-              <Textarea id="gasto-observaciones" value={gasto.observaciones} onChange={(e) => setGasto((prev) => ({ ...prev, observaciones: e.target.value }))} rows={2} />
-            </Field>
-          </FieldGroup>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setGastoOpen(false)}>Cancelar</Button>
-            <Button disabled={guardando || !gasto.concepto.trim()} onClick={guardarGasto}>{guardando ? "Guardando…" : "Guardar gasto"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <Dialog open={gastoOpen} onOpenChange={setGastoOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Registrar gasto de garantía</DialogTitle>
+                <DialogDescription>Este importe se registra como costo interno de ZARAMAN y no modifica el cobro al cliente.</DialogDescription>
+              </DialogHeader>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="gasto-concepto">Concepto</FieldLabel>
+                  <Input id="gasto-concepto" value={gasto.concepto} onChange={(e) => setGasto((prev) => ({ ...prev, concepto: e.target.value }))} placeholder="Ej. Contactor, combustible, traslado…" />
+                </Field>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <Field>
+                    <FieldLabel>Categoría</FieldLabel>
+                    <Select value={gasto.categoria} onValueChange={(v) => setGasto((prev) => ({ ...prev, categoria: v as GastoGarantia["categoria"] }))}>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Material">Material</SelectItem>
+                        <SelectItem value="Traslado">Traslado</SelectItem>
+                        <SelectItem value="Mano de obra">Mano de obra</SelectItem>
+                        <SelectItem value="Otro">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="gasto-cantidad">Cantidad</FieldLabel>
+                    <Input id="gasto-cantidad" type="number" min={0.01} step="0.01" value={gasto.cantidad} onChange={(e) => setGasto((prev) => ({ ...prev, cantidad: Number(e.target.value) }))} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="gasto-costo">Costo unitario</FieldLabel>
+                    <Input id="gasto-costo" type="number" min={0} step="0.01" value={gasto.costoUnitario} onChange={(e) => setGasto((prev) => ({ ...prev, costoUnitario: Number(e.target.value) }))} />
+                  </Field>
+                </div>
+                <Field>
+                  <FieldLabel htmlFor="gasto-observaciones">Observaciones</FieldLabel>
+                  <Textarea id="gasto-observaciones" value={gasto.observaciones} onChange={(e) => setGasto((prev) => ({ ...prev, observaciones: e.target.value }))} rows={2} />
+                </Field>
+              </FieldGroup>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setGastoOpen(false)}>Cancelar</Button>
+                <Button disabled={guardando || !gasto.concepto.trim()} onClick={guardarGasto}>{guardando ? "Guardando…" : "Guardar gasto"}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
+      ) : null}
     </>
   )
 }
