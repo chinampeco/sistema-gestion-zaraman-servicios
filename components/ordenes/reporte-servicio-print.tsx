@@ -31,9 +31,12 @@ export function ReporteServicioPrint({
 
       <div className="print-report hidden">
         <div className="print-header">
-          <div>
-            <div className="print-brand">ZARAMAN SERVICIOS</div>
-            <div className="print-subtitle">Servicios Industriales</div>
+          <div className="print-brand-block">
+            <img
+              src="/zaraman-logo.svg"
+              alt="ZARAMAN S.A. de C.V."
+              className="print-logo"
+            />
           </div>
           <div className="print-title-block">
             <div className="print-document-title">REPORTE DE SERVICIO</div>
@@ -162,9 +165,9 @@ export function ReporteServicioPrint({
 
       <style jsx global>{`
         .print-report { font-family: Arial, Helvetica, sans-serif; color: #111; background: #fff; }
-        .print-header { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; border-bottom:2px solid #111; padding-bottom:7px; }
-        .print-brand { font-size:19px; font-weight:800; letter-spacing:.04em; }
-        .print-subtitle { font-size:9px; color:#555; margin-top:1px; }
+        .print-header { display:flex; justify-content:space-between; align-items:center; gap:18px; border-bottom:2px solid #111; padding-bottom:7px; }
+        .print-brand-block { display:flex; align-items:center; min-width:0; }
+        .print-logo { display:block; width:150px; height:auto; max-height:58px; object-fit:contain; object-position:left center; }
         .print-title-block { text-align:right; }
         .print-document-title { font-size:13px; font-weight:800; }
         .print-folio { font-size:11px; margin-top:2px; }
