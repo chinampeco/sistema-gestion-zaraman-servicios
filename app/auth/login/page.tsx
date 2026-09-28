@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Wrench, Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -50,11 +50,12 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
       <div className="flex w-full max-w-sm flex-col gap-6">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <div className="flex size-11 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Wrench className="size-6" />
-          </div>
-          <h1 className="text-xl font-semibold tracking-tight">ZARAMAN SERVICIOS</h1>
+        <div className="flex flex-col items-center gap-3 text-center">
+          <img
+            src="/zaraman-logo.svg"
+            alt="ZARAMAN S.A. de C.V."
+            className="h-auto w-full max-w-[260px] object-contain"
+          />
           <p className="text-sm text-muted-foreground">
             Sistema de gestión de servicios técnicos industriales
           </p>
