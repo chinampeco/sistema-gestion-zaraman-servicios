@@ -46,12 +46,20 @@ for each row execute function public.set_orden_garantias_updated_at();
 
 alter table public.orden_garantias enable row level security;
 
-drop policy if exists "orden_garantias_select_authenticated" on public.orden_garantias;
-create policy "orden_garantias_select_authenticated"
+drop policy if exists "orden_garantias_select_internal" on public.orden_garantias;
+create policy "orden_garantias_select_internal"
 on public.orden_garantias
 for select
 to authenticated
-using (true);
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.rol in ('Administrador', 'Coordinador', 'Supervisor', 'Técnico', 'Consulta')
+      and coalesce(p.activo, true) = true
+  )
+);
 
 drop policy if exists "orden_garantias_write_internal" on public.orden_garantias;
 create policy "orden_garantias_write_internal"
