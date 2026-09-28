@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc">
+  <title id="title">ZARAMAN S.A. DE C.V.</title>
+  <desc id="desc">Logo corporativo ZARAMAN Servicios Industriales</desc>
+  <defs>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b3b91"/>
+      <stop offset="0.45" stop-color="#087cff"/>
+      <stop offset="1" stop-color="#06276f"/>
+    </linearGradient>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7f7f7"/>
+      <stop offset="0.5" stop-color="#9ea4ad"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="#fff"/>
+  <g transform="translate(600 290)">
+    <circle r="220" fill="none" stroke="#15191f" stroke-width="58" stroke-dasharray="48 22"/>
+    <path d="M-330 80 C-205 255 60 250 350 40 C255 135 120 210 -35 235 C-185 260 -300 200 -330 80Z" fill="url(#blue)" stroke="#101d38" stroke-width="5"/>
+    <path d="M-335 78 C-215 215 35 205 300 20 C205 120 55 175 -80 180 C-205 185 -285 145 -335 78Z" fill="none" stroke="url(#silver)" stroke-width="20"/>
+    <path d="M-185 -115 L165 -115 L65 -35 L-70 -35 L150 70 L-205 70 L-105 -10 L35 -10 Z" fill="url(#blue)" stroke="url(#silver)" stroke-width="14" stroke-linejoin="round"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="600" y="610" font-family="Arial, Helvetica, sans-serif" font-size="112" font-weight="900" letter-spacing="10" fill="url(#blue)">ZARAMAN</text>
+    <line x1="100" y1="650" x2="470" y2="650" stroke="#0b4ba8" stroke-width="8"/>
+    <line x1="730" y1="650" x2="1100" y2="650" stroke="#0b4ba8" stroke-width="8"/>
+    <text x="600" y="700" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="500" letter-spacing="18" fill="#161a20">S.A. DE C.V.</text>
+    <text x="600" y="752" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="500" letter-spacing="9" fill="#30343a">SOLUCIONES QUE MUEVEN TU INDUSTRIA</text>
+  </g>
+</svg>
