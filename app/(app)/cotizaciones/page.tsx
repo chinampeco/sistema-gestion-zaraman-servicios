@@ -183,7 +183,7 @@ export default function CotizacionesPage() {
                             <Button
                               variant="ghost"
                               size="icon-sm"
-                              onClick={() => setDelete(c)}
+                              onClick={() => setDeleting(c)}
                               aria-label="Eliminar cotización"
                             >
                               <Trash2 />
