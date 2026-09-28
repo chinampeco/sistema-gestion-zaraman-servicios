@@ -47,9 +47,6 @@ export function PendientesAsignacion() {
 
   if (!puedeReasignarOrdenes(usuarioActual.rol)) return null
 
-  // Las órdenes creadas desde el portal entran como "Pendiente" y sin técnico.
-  // También aceptamos el estado antiguo "Pendiente de asignación" para no
-  // perder órdenes creadas por una versión anterior.
   const pendientes = ordenes
     .filter(
       (o) =>
@@ -77,7 +74,7 @@ export function PendientesAsignacion() {
   }
 
   const confirmarAsignacion = async () => {
-    if (!asignando || !tecnicoId) return
+    if (!asignando || !tecnicoId || guardando) return
     setGuardando(true)
 
     const evento: HistorialEvento = {
@@ -87,23 +84,24 @@ export function PendientesAsignacion() {
       usuarioNombre: usuarioActual.nombre,
     }
 
-    const actualizada = await actualizarOrden(asignando.id, {
-      tecnicoId,
-      estado: "Asignada",
-      historial: [...asignando.historial, evento],
-    })
+    try {
+      await actualizarOrden(asignando.id, {
+        tecnicoId,
+        estado: "Asignada",
+        historial: [...asignando.historial, evento],
+      })
 
-    if (!actualizada) {
+      const tecnico = tecnicos.find((t) => t.id === tecnicoId)
+      toast.success(
+        `Orden ${asignando.folio} asignada a ${tecnico?.nombre ?? "el técnico"}.`,
+      )
+      setAsignando(null)
+      setTecnicoId("")
+    } catch {
+      toast.error("No se pudo asignar el técnico. Intenta nuevamente.")
+    } finally {
       setGuardando(false)
-      return
     }
-
-    const tecnico = tecnicos.find((t) => t.id === tecnicoId)
-    toast.success(
-      `Orden ${asignando.folio} asignada a ${tecnico?.nombre ?? "el técnico"}.`,
-    )
-    setGuardando(false)
-    setAsignando(null)
   }
 
   return (
@@ -149,8 +147,7 @@ export function PendientesAsignacion() {
                         </Link>
                         {cot && (
                           <span className="text-xs text-muted-foreground">
-                            desde cotización{" "}
-                            <span className="font-mono">{cot.folio}</span>
+                            desde cotización <span className="font-mono">{cot.folio}</span>
                           </span>
                         )}
                       </div>
