@@ -95,6 +95,10 @@ export function OrdenFirma({ orden }: { orden: OrdenServicio }) {
   }
 
   const guardarFirmaTecnico = async () => {
+    if (!orden.firmaCliente?.trim()) {
+      toast.error("No se puede cerrar la orden: primero debe quedar registrada la firma del cliente.")
+      return
+    }
     if (!tieneTrazo) {
       toast.error("Captura la firma del técnico antes de guardar.")
       return
@@ -134,11 +138,11 @@ export function OrdenFirma({ orden }: { orden: OrdenServicio }) {
     }
   }
 
-  if (!orden.firmaCliente) {
+  if (!orden.firmaCliente?.trim()) {
     return (
       <div className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">
-          El cliente aún no ha firmado la conformidad del servicio.
+          El cliente aún no ha firmado la conformidad del servicio. La orden no puede cerrarse hasta registrar una firma válida.
         </p>
         <canvas
           ref={canvasRef}
@@ -234,7 +238,7 @@ export function OrdenFirma({ orden }: { orden: OrdenServicio }) {
                 <Eraser data-icon="inline-start" />
                 Limpiar
               </Button>
-              <Button type="button" size="sm" onClick={guardarFirmaTecnico} disabled={guardando}>
+              <Button type="button" size="sm" onClick={guardarFirmaTecnico} disabled={guardando || !orden.firmaCliente?.trim()}>
                 <Check data-icon="inline-start" />
                 {guardando ? "Cerrando..." : "Firmar y cerrar orden"}
               </Button>
