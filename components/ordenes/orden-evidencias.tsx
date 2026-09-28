@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useStore } from "@/lib/store"
+import { puedeReasignarOrdenes } from "@/lib/permisos"
 import { createClient } from "@/lib/supabase/client"
 import { hoyISO } from "@/lib/format"
 import {
@@ -26,17 +27,26 @@ import {
 const BUCKET = "evidencias"
 
 export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
-  const { actualizarOrden } = useStore()
+  const { actualizarOrden, usuarioActual } = useStore()
   const [fase, setFase] = React.useState<FaseEvidencia>("Durante")
   const [subiendo, setSubiendo] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const bloqueada = Boolean(orden.firmaCliente)
+  const esTecnicoAsignado =
+    usuarioActual.rol === "Técnico" &&
+    usuarioActual.tecnicoId != null &&
+    usuarioActual.tecnicoId === orden.tecnicoId
+  const puedeEditar = !bloqueada && (esTecnicoAsignado || puedeReasignarOrdenes(usuarioActual.rol))
 
   const evidencias = orden.evidencias
 
   const handleUpload = async (files: FileList | null) => {
-    if (bloqueada) {
-      toast.error("Las evidencias están bloqueadas después de la firma del cliente.")
+    if (!puedeEditar) {
+      toast.error(
+        bloqueada
+          ? "Las evidencias están bloqueadas después de la firma del cliente."
+          : "Solo el técnico asignado o un usuario autorizado puede agregar evidencias.",
+      )
       return
     }
     if (!files || files.length === 0) return
@@ -73,8 +83,12 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
   }
 
   const eliminar = async (ev: EvidenciaOrden) => {
-    if (bloqueada) {
-      toast.error("Las evidencias están bloqueadas después de la firma del cliente.")
+    if (!puedeEditar) {
+      toast.error(
+        bloqueada
+          ? "Las evidencias están bloqueadas después de la firma del cliente."
+          : "Solo el técnico asignado o un usuario autorizado puede eliminar evidencias.",
+      )
       return
     }
     const supabase = createClient()
@@ -90,18 +104,14 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
           <LockKeyhole className="size-4" />
           Evidencias bloqueadas después de la firma del cliente.
         </div>
-      ) : (
+      ) : puedeEditar ? (
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted-foreground">Fase</label>
             <Select value={fase} onValueChange={(v) => setFase(v as FaseEvidencia)}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {FASES_EVIDENCIA.map((f) => (
-                  <SelectItem key={f} value={f}>{f}</SelectItem>
-                ))}
+                {FASES_EVIDENCIA.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -111,6 +121,10 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
             {subiendo ? "Subiendo..." : "Subir fotos"}
           </Button>
         </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Solo el técnico asignado y los responsables de operación pueden modificar evidencias.
+        </p>
       )}
 
       {evidencias.length === 0 ? (
@@ -126,7 +140,7 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
               <img src={ev.url || "/placeholder.svg"} alt={ev.descripcion || "Evidencia"} className="aspect-square w-full object-cover" crossOrigin="anonymous" />
               <figcaption className="flex items-center justify-between gap-1 p-2">
                 <Badge variant="outline" className="text-xs">{ev.fase}</Badge>
-                {!bloqueada ? (
+                {puedeEditar ? (
                   <Button type="button" variant="ghost" size="icon-sm" onClick={() => eliminar(ev)} aria-label="Eliminar evidencia">
                     <Trash2 />
                   </Button>
