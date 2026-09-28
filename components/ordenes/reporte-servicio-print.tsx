@@ -20,7 +20,14 @@ export function ReporteServicioPrint({
   equipo,
   tecnico,
 }: ReporteServicioPrintProps) {
-  const imprimir = () => window.print()
+  const imprimir = () => {
+    const tituloOriginal = document.title
+    document.title = `ZARAMAN SERVICIOS - ${orden.folio}`
+    window.print()
+    window.setTimeout(() => {
+      document.title = tituloOriginal
+    }, 1000)
+  }
 
   return (
     <>
