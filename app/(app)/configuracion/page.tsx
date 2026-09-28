@@ -37,6 +37,7 @@ import { toast } from "sonner"
 export default function ConfiguracionPage() {
   const { usuarioActual } = useStore()
   const esAdmin = puedeGestionarUsuarios(usuarioActual.rol)
+  const esSupervisor = usuarioActual.rol === "Supervisor"
 
   const [nombre, setNombre] = React.useState("")
   const [email, setEmail] = React.useState("")
@@ -167,6 +168,11 @@ export default function ConfiguracionPage() {
               <CardDescription>
                 Preferencias de la aplicación y de órdenes de servicio.
               </CardDescription>
+              {esSupervisor && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                  Solo visualización para Supervisores. El nombre de la empresa, el prefijo de folio y las preferencias generales no pueden modificarse desde este perfil.
+                </div>
+              )}
             </CardHeader>
             <CardContent className="flex flex-col gap-6">
               <FieldGroup>
@@ -177,6 +183,8 @@ export default function ConfiguracionPage() {
                       id="empresa"
                       value={nombreEmpresa}
                       onChange={(e) => setNombreEmpresa(e.target.value)}
+                      disabled={esSupervisor}
+                      readOnly={esSupervisor}
                     />
                   </Field>
                   <Field>
@@ -185,6 +193,8 @@ export default function ConfiguracionPage() {
                       id="prefijo"
                       value={prefijoFolio}
                       onChange={(e) => setPrefijoFolio(e.target.value)}
+                      disabled={esSupervisor}
+                      readOnly={esSupervisor}
                     />
                     <FieldDescription>
                       Ejemplo: {prefijoFolio || "OS"}-000001
@@ -209,6 +219,7 @@ export default function ConfiguracionPage() {
                     id="notif-correo"
                     checked={notifCorreo}
                     onCheckedChange={setNotifCorreo}
+                    disabled={esSupervisor}
                   />
                 </Field>
                 <Field orientation="horizontal">
@@ -224,17 +235,20 @@ export default function ConfiguracionPage() {
                     id="recordatorios"
                     checked={recordatorios}
                     onCheckedChange={setRecordatorios}
+                    disabled={esSupervisor}
                   />
                 </Field>
               </div>
             </CardContent>
-            <CardFooter className="justify-end">
-              <Button
-                onClick={() => toast.success("Configuración guardada")}
-              >
-                Guardar cambios
-              </Button>
-            </CardFooter>
+            {!esSupervisor && (
+              <CardFooter className="justify-end">
+                <Button
+                  onClick={() => toast.success("Configuración guardada")}
+                >
+                  Guardar cambios
+                </Button>
+              </CardFooter>
+            )}
           </Card>
         </TabsContent>
       </Tabs>
