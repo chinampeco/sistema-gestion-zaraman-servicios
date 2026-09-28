@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft, Pencil, ClipboardList } from "lucide-react"
+import { toast } from "sonner"
 
 import { PageHeader } from "@/components/page-header"
 import { TicketFormDialog } from "@/components/tickets/ticket-form-dialog"
@@ -23,12 +24,12 @@ import {
 } from "@/components/ui/empty"
 import { useStore } from "@/lib/store"
 import { formatFecha } from "@/lib/format"
+import { convertirTicketEnOrdenDirecta } from "@/lib/ticket-conversion"
 
 export default function TicketDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
-  const { tickets, ordenes, clientes, equipos, usuarios, convertirTicketEnOrden } =
-    useStore()
+  const { tickets, ordenes, clientes, equipos, usuarios, usuarioActual, recargar } = useStore()
   const [editOpen, setEditOpen] = React.useState(false)
   const [generando, setGenerando] = React.useState(false)
 
@@ -57,10 +58,27 @@ export default function TicketDetailPage() {
   const orden = ordenes.find((o) => o.id === ticket.ordenId)
 
   const handleGenerarOrden = async () => {
+    if (!usuarioActual.id) {
+      toast.error("No se pudo identificar al usuario actual.")
+      return
+    }
+
     setGenerando(true)
-    const nueva = await convertirTicketEnOrden(ticket)
+    const resultado = await convertirTicketEnOrdenDirecta(ticket, usuarioActual.id)
     setGenerando(false)
-    if (nueva) router.push(`/ordenes/${nueva.id}`)
+
+    if (!resultado) {
+      toast.error("No se pudo generar la orden desde el ticket.")
+      return
+    }
+
+    await recargar()
+    toast.success(
+      resultado.esGarantia
+        ? `${resultado.orden.folio} creada como atención por garantía.`
+        : `${resultado.orden.folio} creada como servicio directo.`,
+    )
+    router.push(`/ordenes/${resultado.orden.id}`)
   }
 
   return (
