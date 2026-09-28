@@ -20,12 +20,7 @@ import type { EstadoOrden, HistorialEvento, OrdenServicio } from "@/lib/types"
 
 type AccionPendiente = "camino" | "iniciar" | null
 
-/**
- * Acciones rápidas para el técnico en la vista de campo (móvil).
- * Solo se muestran sobre las órdenes que el técnico autenticado tiene asignadas.
- * El cambio de estado se guarda vía el store (sesión del usuario), por lo que
- * la RLS de la base de datos vuelve a validar la propiedad de la orden.
- */
+/** Acciones rápidas para el técnico en la vista de campo. */
 export function AccionesRapidasTecnico({ orden }: { orden: OrdenServicio }) {
   const { usuarioActual, actualizarOrden } = useStore()
   const [pendiente, setPendiente] = React.useState<AccionPendiente>(null)
@@ -38,6 +33,9 @@ export function AccionesRapidasTecnico({ orden }: { orden: OrdenServicio }) {
 
   if (!esMiOrden) return null
   if (orden.estado === "Terminada" || orden.estado === "Cancelada") return null
+  // Después de la firma del cliente el servicio entra en etapa de cierre:
+  // el único paso disponible para el técnico es firmar y cerrar la orden.
+  if (orden.firmaCliente) return null
 
   const enProceso = orden.estado === "En proceso"
 
@@ -73,30 +71,19 @@ export function AccionesRapidasTecnico({ orden }: { orden: OrdenServicio }) {
     <>
       <div className="flex flex-col gap-2 border-t pt-3">
         {enProceso ? (
-          <Button
-            className="w-full"
-            render={<Link href={`/ordenes/${orden.id}`} />}
-            nativeButton={false}
-          >
+          <Button className="w-full" render={<Link href={`/ordenes/${orden.id}`} />} nativeButton={false}>
             <ArrowRight data-icon="inline-start" />
             Continuar servicio
           </Button>
         ) : (
           <>
             {orden.estado !== "En camino" && (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setPendiente("camino")}
-              >
+              <Button variant="outline" className="w-full" onClick={() => setPendiente("camino")}>
                 <Truck data-icon="inline-start" />
                 En camino
               </Button>
             )}
-            <Button
-              className="w-full"
-              onClick={() => setPendiente("iniciar")}
-            >
+            <Button className="w-full" onClick={() => setPendiente("iniciar")}>
               <Play data-icon="inline-start" />
               Iniciar servicio
             </Button>
@@ -104,12 +91,7 @@ export function AccionesRapidasTecnico({ orden }: { orden: OrdenServicio }) {
         )}
       </div>
 
-      <AlertDialog
-        open={pendiente !== null}
-        onOpenChange={(open) => {
-          if (!open && !guardando) setPendiente(null)
-        }}
-      >
+      <AlertDialog open={pendiente !== null} onOpenChange={(open) => { if (!open && !guardando) setPendiente(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -123,13 +105,7 @@ export function AccionesRapidasTecnico({ orden }: { orden: OrdenServicio }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={guardando}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                void confirmar()
-              }}
-              disabled={guardando}
-            >
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); void confirmar() }} disabled={guardando}>
               {guardando ? "Guardando…" : "Confirmar"}
             </AlertDialogAction>
           </AlertDialogFooter>
