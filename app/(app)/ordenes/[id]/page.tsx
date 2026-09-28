@@ -77,6 +77,7 @@ export default function OrdenDetailPage() {
   const creador = usuarios.find((u) => u.id === orden.creadoPor)
   const cotizacion = cotizaciones.find((c) => c.ordenId === orden.id)
   const factura = facturas.find((f) => f.ordenId === orden.id)
+  const puedeEditarOrden = puedeReasignarOrdenes(usuarioActual.rol)
 
   return (
     <>
@@ -93,10 +94,12 @@ export default function OrdenDetailPage() {
           title={orden.folio}
           description={cliente?.nombre}
           actions={
-            <Button variant="outline" onClick={() => setEditOpen(true)}>
-              <Pencil data-icon="inline-start" />
-              Editar
-            </Button>
+            puedeEditarOrden ? (
+              <Button variant="outline" onClick={() => setEditOpen(true)}>
+                <Pencil data-icon="inline-start" />
+                Editar
+              </Button>
+            ) : null
           }
         />
       </div>
@@ -253,7 +256,9 @@ export default function OrdenDetailPage() {
         </CardContent>
       </Card>
 
-      <OrdenFormDialog open={editOpen} onOpenChange={setEditOpen} orden={orden} />
+      {puedeEditarOrden ? (
+        <OrdenFormDialog open={editOpen} onOpenChange={setEditOpen} orden={orden} />
+      ) : null}
     </>
   )
 }
