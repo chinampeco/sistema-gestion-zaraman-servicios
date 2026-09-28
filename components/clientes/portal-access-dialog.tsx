@@ -124,12 +124,17 @@ export function PortalAccessDialog({
         setCargando(false)
         return
       }
-      await recargar()
+
+      // La operación principal ya fue confirmada por la API. No debemos esperar
+      // a recargar todo el store para mostrar el éxito: si la recarga tarda o
+      // falla, la contraseña ya cambió y el formulario no debe quedar bloqueado.
       setExito(true)
+      setCargando(false)
+      void recargar().catch(() => undefined)
     } catch {
       setError("Error de conexión. Intenta de nuevo.")
+      setCargando(false)
     }
-    setCargando(false)
   }
 
   const emailMostrado = esReset ? emailExistente ?? cliente.email ?? "" : email
@@ -153,11 +158,11 @@ export function PortalAccessDialog({
             <Alert>
               <KeyRound className="size-4" />
               <AlertTitle>
-                {esReset ? "Contraseña actualizada" : "Acceso creado correctamente"}
+                {esReset ? "Contraseña actualizada correctamente" : "Acceso creado correctamente"}
               </AlertTitle>
               <AlertDescription>
                 {esReset
-                  ? "Comparte la nueva contraseña con el cliente. No volverá a mostrarse."
+                  ? "La nueva contraseña ya está activa. Puedes copiarla y compartirla con el cliente."
                   : "Comparte estas credenciales con el cliente. La contraseña no volverá a mostrarse."}
               </AlertDescription>
             </Alert>
