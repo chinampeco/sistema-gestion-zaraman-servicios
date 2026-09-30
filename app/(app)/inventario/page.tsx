@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Boxes, Edit3, History, PackagePlus, Search, TriangleAlert } from "lucide-react"
+import { Boxes, Edit3, History, MapPin, PackagePlus, Plus, Search, Warehouse, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/components/page-header"
@@ -9,484 +9,110 @@ import { StatCard } from "@/components/stat-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useStore } from "@/lib/store"
 import { createClient } from "@/lib/supabase/client"
 import { formatMoneda } from "@/lib/format"
 import { puedeEditar } from "@/lib/permisos"
 
-interface Producto {
-  id: string
-  codigo: string
-  nombre: string
-  descripcion: string | null
-  categoria: string
-  marca: string | null
-  modelo: string | null
-  unidad: string
-  costo: number
-  precio_venta: number
-  stock: number
-  stock_minimo: number
-  ubicacion: string | null
-  activo: boolean
-}
+interface Producto { id:string; codigo:string; nombre:string; descripcion:string|null; categoria:string; marca:string|null; modelo:string|null; unidad:string; costo:number; precio_venta:number; stock:number; stock_minimo:number; ubicacion:string|null; activo:boolean }
+interface Movimiento { id:string; producto_id:string; tipo:string; cantidad:number; stock_anterior:number; stock_nuevo:number; costo_unitario:number; referencia:string|null; orden_id:string|null; notas:string|null; almacen_id:string|null; almacen_destino_id:string|null; created_at:string }
+interface Almacen { id:string; codigo:string; nombre:string; descripcion:string|null; ubicacion:string|null; responsable_id:string|null; activo:boolean }
+interface Existencia { producto_id:string; almacen_id:string; stock:number; stock_minimo:number }
 
-interface Movimiento {
-  id: string
-  producto_id: string
-  tipo: string
-  cantidad: number
-  stock_anterior: number
-  stock_nuevo: number
-  costo_unitario: number
-  referencia: string | null
-  orden_id: string | null
-  notas: string | null
-  created_at: string
-}
+const TIPOS_MOVIMIENTO = ["Entrada","Salida","Ajuste","Devolución","Consumo de servicio","Transferencia"] as const
+const UNIDADES = ["Pieza","Metro","Litro","Kilogramo","Caja","Juego","Servicio"]
 
-const TIPOS_MOVIMIENTO = [
-  "Entrada",
-  "Salida",
-  "Ajuste",
-  "Devolución",
-  "Consumo de servicio",
-] as const
+type ProductoForm = { codigo:string; nombre:string; descripcion:string; categoria:string; marca:string; modelo:string; unidad:string; costo:string; precioVenta:string; stockMinimo:string; ubicacion:string; activo:boolean }
+type AlmacenForm = { codigo:string; nombre:string; descripcion:string; ubicacion:string; activo:boolean }
+const emptyProducto=():ProductoForm=>({codigo:"",nombre:"",descripcion:"",categoria:"General",marca:"",modelo:"",unidad:"Pieza",costo:"0",precioVenta:"0",stockMinimo:"0",ubicacion:"",activo:true})
+const emptyAlmacen=():AlmacenForm=>({codigo:"",nombre:"",descripcion:"",ubicacion:"",activo:true})
 
-const UNIDADES = ["Pieza", "Metro", "Litro", "Kilogramo", "Caja", "Juego", "Servicio"]
+export default function InventarioPage(){
+  const supabase=React.useMemo(()=>createClient(),[])
+  const {usuarioActual,ordenes}=useStore()
+  const editable=puedeEditar(usuarioActual.rol)
+  const [productos,setProductos]=React.useState<Producto[]>([])
+  const [movimientos,setMovimientos]=React.useState<Movimiento[]>([])
+  const [almacenes,setAlmacenes]=React.useState<Almacen[]>([])
+  const [existencias,setExistencias]=React.useState<Existencia[]>([])
+  const [vista,setVista]=React.useState<"inventario"|"almacenes">("inventario")
+  const [almacenSeleccionado,setAlmacenSeleccionado]=React.useState("todos")
+  const [busqueda,setBusqueda]=React.useState("")
+  const [soloBajoStock,setSoloBajoStock]=React.useState(false)
+  const [cargando,setCargando]=React.useState(true)
+  const [productoOpen,setProductoOpen]=React.useState(false)
+  const [movimientoOpen,setMovimientoOpen]=React.useState(false)
+  const [historialOpen,setHistorialOpen]=React.useState(false)
+  const [almacenOpen,setAlmacenOpen]=React.useState(false)
+  const [productoEditando,setProductoEditando]=React.useState<Producto|null>(null)
+  const [productoHistorial,setProductoHistorial]=React.useState<Producto|null>(null)
+  const [almacenEditando,setAlmacenEditando]=React.useState<Almacen|null>(null)
+  const [productoForm,setProductoForm]=React.useState(emptyProducto())
+  const [almacenForm,setAlmacenForm]=React.useState(emptyAlmacen())
+  const [movimientoForm,setMovimientoForm]=React.useState({productoId:"",tipo:"Entrada",cantidad:"",costoUnitario:"",referencia:"",ordenId:"",notas:"",almacenId:"",almacenDestinoId:""})
 
-type ProductoForm = {
-  codigo: string
-  nombre: string
-  descripcion: string
-  categoria: string
-  marca: string
-  modelo: string
-  unidad: string
-  costo: string
-  precioVenta: string
-  stockMinimo: string
-  ubicacion: string
-  activo: boolean
-}
-
-const emptyProducto = (): ProductoForm => ({
-  codigo: "",
-  nombre: "",
-  descripcion: "",
-  categoria: "General",
-  marca: "",
-  modelo: "",
-  unidad: "Pieza",
-  costo: "0",
-  precioVenta: "0",
-  stockMinimo: "0",
-  ubicacion: "",
-  activo: true,
-})
-
-export default function InventarioPage() {
-  const supabase = React.useMemo(() => createClient(), [])
-  const { usuarioActual, ordenes } = useStore()
-  const editable = puedeEditar(usuarioActual.rol)
-  const [productos, setProductos] = React.useState<Producto[]>([])
-  const [movimientos, setMovimientos] = React.useState<Movimiento[]>([])
-  const [busqueda, setBusqueda] = React.useState("")
-  const [soloBajoStock, setSoloBajoStock] = React.useState(false)
-  const [cargando, setCargando] = React.useState(true)
-  const [productoOpen, setProductoOpen] = React.useState(false)
-  const [movimientoOpen, setMovimientoOpen] = React.useState(false)
-  const [historialOpen, setHistorialOpen] = React.useState(false)
-  const [productoEditando, setProductoEditando] = React.useState<Producto | null>(null)
-  const [productoHistorial, setProductoHistorial] = React.useState<Producto | null>(null)
-  const [productoForm, setProductoForm] = React.useState<ProductoForm>(emptyProducto())
-  const [movimientoForm, setMovimientoForm] = React.useState({
-    productoId: "",
-    tipo: "Entrada",
-    cantidad: "",
-    costoUnitario: "",
-    referencia: "",
-    ordenId: "",
-    notas: "",
-  })
-
-  const cargar = React.useCallback(async () => {
+  const cargar=React.useCallback(async()=>{
     setCargando(true)
-    const [productosRes, movimientosRes] = await Promise.all([
+    const [p,m,a,e]=await Promise.all([
       supabase.from("inventario_productos").select("*").order("nombre"),
-      supabase
-        .from("inventario_movimientos")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200),
+      supabase.from("inventario_movimientos").select("*").order("created_at",{ascending:false}).limit(300),
+      supabase.from("almacenes").select("*").order("nombre"),
+      supabase.from("inventario_existencias").select("*")
     ])
-    if (productosRes.error) toast.error("No se pudo cargar el inventario.")
-    if (movimientosRes.error) toast.error("No se pudo cargar el historial de movimientos.")
-    setProductos((productosRes.data ?? []) as Producto[])
-    setMovimientos((movimientosRes.data ?? []) as Movimiento[])
-    setCargando(false)
-  }, [supabase])
+    if(p.error) toast.error("No se pudo cargar el inventario.")
+    if(m.error) toast.error("No se pudo cargar el historial de movimientos.")
+    if(a.error) toast.error("No se pudieron cargar los almacenes.")
+    if(e.error) toast.error("No se pudieron cargar las existencias por almacén.")
+    setProductos((p.data??[]) as Producto[]); setMovimientos((m.data??[]) as Movimiento[]); setAlmacenes((a.data??[]) as Almacen[]); setExistencias((e.data??[]) as Existencia[]); setCargando(false)
+  },[supabase])
+  React.useEffect(()=>{void cargar()},[cargar])
 
-  React.useEffect(() => {
-    void cargar()
-  }, [cargar])
+  const stockEnAlmacen=React.useCallback((productoId:string,almacenId:string)=>existencias.find(e=>e.producto_id===productoId&&e.almacen_id===almacenId)?.stock??0,[existencias])
+  const stockMinEnAlmacen=React.useCallback((producto:Producto,almacenId:string)=>existencias.find(e=>e.producto_id===producto.id&&e.almacen_id===almacenId)?.stock_minimo??producto.stock_minimo,[existencias])
+  const valorInventario=productos.reduce((s,p)=>s+p.stock*p.costo,0)
+  const bajosGlobal=productos.filter(p=>p.activo&&p.stock<=p.stock_minimo)
+  const bajosAlmacen=almacenSeleccionado!=="todos"?productos.filter(p=>p.activo&&stockEnAlmacen(p.id,almacenSeleccionado)<=stockMinEnAlmacen(p,almacenSeleccionado)):bajosGlobal
+  const bajos=almacenSeleccionado==="todos"?bajosGlobal:bajosAlmacen
 
-  const bajos = productos.filter((p) => p.activo && p.stock <= p.stock_minimo)
-  const valorInventario = productos.reduce((acc, p) => acc + p.stock * p.costo, 0)
+  const filtrados=React.useMemo(()=>{const q=busqueda.trim().toLowerCase();return productos.filter(p=>{const stock=almacenSeleccionado==="todos"?p.stock:stockEnAlmacen(p.id,almacenSeleccionado);const minimo=almacenSeleccionado==="todos"?p.stock_minimo:stockMinEnAlmacen(p,almacenSeleccionado);if(soloBajoStock&&!(p.activo&&stock<=minimo))return false;if(!q)return true;return [p.codigo,p.nombre,p.categoria,p.marca??"",p.modelo??""].join(" ").toLowerCase().includes(q)})},[productos,busqueda,soloBajoStock,almacenSeleccionado,stockEnAlmacen,stockMinEnAlmacen])
 
-  const filtrados = React.useMemo(() => {
-    const q = busqueda.trim().toLowerCase()
-    return productos.filter((p) => {
-      if (soloBajoStock && !(p.activo && p.stock <= p.stock_minimo)) return false
-      if (!q) return true
-      return [p.codigo, p.nombre, p.categoria, p.marca ?? "", p.modelo ?? ""]
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
-    })
-  }, [productos, busqueda, soloBajoStock])
+  const abrirNuevo=()=>{setProductoEditando(null);setProductoForm(emptyProducto());setProductoOpen(true)}
+  const abrirEditar=(p:Producto)=>{setProductoEditando(p);setProductoForm({codigo:p.codigo,nombre:p.nombre,descripcion:p.descripcion??"",categoria:p.categoria,marca:p.marca??"",modelo:p.modelo??"",unidad:p.unidad,costo:String(p.costo),precioVenta:String(p.precio_venta),stockMinimo:String(p.stock_minimo),ubicacion:p.ubicacion??"",activo:p.activo});setProductoOpen(true)}
+  const guardarProducto=async(e:React.FormEvent)=>{e.preventDefault();if(!editable)return;if(!productoForm.codigo.trim()||!productoForm.nombre.trim()){toast.error("Código y nombre son obligatorios.");return}const payload={codigo:productoForm.codigo.trim(),nombre:productoForm.nombre.trim(),descripcion:productoForm.descripcion.trim()||null,categoria:productoForm.categoria.trim()||"General",marca:productoForm.marca.trim()||null,modelo:productoForm.modelo.trim()||null,unidad:productoForm.unidad,costo:Number(productoForm.costo)||0,precio_venta:Number(productoForm.precioVenta)||0,stock_minimo:Number(productoForm.stockMinimo)||0,ubicacion:productoForm.ubicacion.trim()||null,activo:productoForm.activo};const r=productoEditando?await supabase.from("inventario_productos").update(payload).eq("id",productoEditando.id).select("*").single():await supabase.from("inventario_productos").insert({...payload,creado_por:usuarioActual.id}).select("*").single();if(r.error||!r.data){toast.error(r.error?.message||"No se pudo guardar el producto.");return}toast.success(productoEditando?"Producto actualizado.":"Producto creado.");setProductoOpen(false);await cargar()}
 
-  const abrirNuevo = () => {
-    setProductoEditando(null)
-    setProductoForm(emptyProducto())
-    setProductoOpen(true)
-  }
+  const abrirMovimiento=(p?:Producto)=>{setMovimientoForm(x=>({...x,productoId:p?.id??"",almacenId:almacenSeleccionado!=="todos"?almacenSeleccionado:""}));setMovimientoOpen(true)}
+  const registrarMovimiento=async(e:React.FormEvent)=>{e.preventDefault();if(!editable)return;const cantidad=Number(movimientoForm.cantidad);if(!movimientoForm.productoId||!Number.isFinite(cantidad)||cantidad<=0){toast.error("Selecciona un producto e indica una cantidad válida.");return}if(!movimientoForm.almacenId){toast.error("Selecciona el almacén del movimiento.");return}if(movimientoForm.tipo==="Transferencia"&&!movimientoForm.almacenDestinoId){toast.error("Selecciona el almacén destino.");return}if(movimientoForm.tipo==="Transferencia"&&movimientoForm.almacenDestinoId===movimientoForm.almacenId){toast.error("El origen y destino deben ser diferentes.");return}const r=await supabase.from("inventario_movimientos").insert({producto_id:movimientoForm.productoId,tipo:movimientoForm.tipo,cantidad,costo_unitario:Number(movimientoForm.costoUnitario)||0,referencia:movimientoForm.referencia.trim()||null,orden_id:movimientoForm.ordenId||null,notas:movimientoForm.notas.trim()||null,almacen_id:movimientoForm.almacenId,almacen_destino_id:movimientoForm.tipo==="Transferencia"?movimientoForm.almacenDestinoId:null,creado_por:usuarioActual.id}).select("*").single();if(r.error||!r.data){toast.error(r.error?.message||"No se pudo registrar el movimiento.");return}toast.success(movimientoForm.tipo==="Transferencia"?"Transferencia realizada.":"Movimiento registrado y stock actualizado.");setMovimientoOpen(false);setMovimientoForm({productoId:"",tipo:"Entrada",cantidad:"",costoUnitario:"",referencia:"",ordenId:"",notas:"",almacenId:"",almacenDestinoId:""});await cargar()}
 
-  const abrirEditar = (producto: Producto) => {
-    setProductoEditando(producto)
-    setProductoForm({
-      codigo: producto.codigo,
-      nombre: producto.nombre,
-      descripcion: producto.descripcion ?? "",
-      categoria: producto.categoria,
-      marca: producto.marca ?? "",
-      modelo: producto.modelo ?? "",
-      unidad: producto.unidad,
-      costo: String(producto.costo),
-      precioVenta: String(producto.precio_venta),
-      stockMinimo: String(producto.stock_minimo),
-      ubicacion: producto.ubicacion ?? "",
-      activo: producto.activo,
-    })
-    setProductoOpen(true)
-  }
+  const abrirHistorial=(p:Producto)=>{setProductoHistorial(p);setHistorialOpen(true)}
+  const movimientosProducto=productoHistorial?movimientos.filter(m=>m.producto_id===productoHistorial.id):[]
+  const abrirNuevoAlmacen=()=>{setAlmacenEditando(null);setAlmacenForm(emptyAlmacen());setAlmacenOpen(true)}
+  const abrirEditarAlmacen=(a:Almacen)=>{setAlmacenEditando(a);setAlmacenForm({codigo:a.codigo,nombre:a.nombre,descripcion:a.descripcion??"",ubicacion:a.ubicacion??"",activo:a.activo});setAlmacenOpen(true)}
+  const guardarAlmacen=async(e:React.FormEvent)=>{e.preventDefault();if(!editable)return;if(!almacenForm.codigo.trim()||!almacenForm.nombre.trim()){toast.error("Código y nombre son obligatorios.");return}const payload={codigo:almacenForm.codigo.trim().toUpperCase(),nombre:almacenForm.nombre.trim(),descripcion:almacenForm.descripcion.trim()||null,ubicacion:almacenForm.ubicacion.trim()||null,activo:almacenForm.activo};const r=almacenEditando?await supabase.from("almacenes").update(payload).eq("id",almacenEditando.id).select("*").single():await supabase.from("almacenes").insert(payload).select("*").single();if(r.error||!r.data){toast.error(r.error?.message||"No se pudo guardar el almacén.");return}toast.success(almacenEditando?"Almacén actualizado.":"Almacén creado.");setAlmacenOpen(false);await cargar()}
 
-  const guardarProducto = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (!editable) return
-    if (!productoForm.codigo.trim() || !productoForm.nombre.trim()) {
-      toast.error("Código y nombre son obligatorios.")
-      return
-    }
+  return <>
+    <PageHeader title="Inventario y almacén" description="Control de productos, existencias, movimientos y almacenes." actions={editable?<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={abrirMovimiento}><History data-icon="inline-start"/>Movimiento</Button><Button variant="outline" onClick={abrirNuevoAlmacen}><Warehouse data-icon="inline-start"/>Nuevo almacén</Button><Button onClick={abrirNuevo}><PackagePlus data-icon="inline-start"/>Nuevo producto</Button></div>:null}/>
+    <div className="mb-4 flex flex-wrap gap-2 rounded-xl border bg-card p-2"><Button variant={vista==="inventario"?"default":"ghost"} onClick={()=>setVista("inventario")}><Boxes data-icon="inline-start"/>Inventario</Button><Button variant={vista==="almacenes"?"default":"ghost"} onClick={()=>setVista("almacenes")}><Warehouse data-icon="inline-start"/>Almacenes</Button></div>
 
-    const payload = {
-      codigo: productoForm.codigo.trim(),
-      nombre: productoForm.nombre.trim(),
-      descripcion: productoForm.descripcion.trim() || null,
-      categoria: productoForm.categoria.trim() || "General",
-      marca: productoForm.marca.trim() || null,
-      modelo: productoForm.modelo.trim() || null,
-      unidad: productoForm.unidad,
-      costo: Number(productoForm.costo) || 0,
-      precio_venta: Number(productoForm.precioVenta) || 0,
-      stock_minimo: Number(productoForm.stockMinimo) || 0,
-      ubicacion: productoForm.ubicacion.trim() || null,
-      activo: productoForm.activo,
-    }
+    {vista==="inventario"?<>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4"><StatCard label="Productos" value={String(productos.length)} icon={Boxes} hint={`${productos.filter(p=>p.activo).length} activos`}/><StatCard label="Almacenes" value={String(almacenes.filter(a=>a.activo).length)} icon={Warehouse} hint="Activos"/><StatCard label="Stock bajo" value={String(bajos.length)} icon={TriangleAlert} hint={almacenSeleccionado==="todos"?"Inventario global":"En almacén seleccionado"} accent={bajos.length?"destructive":undefined}/><StatCard label="Valor de inventario" value={formatMoneda(valorInventario)} icon={PackagePlus} hint="A costo registrado"/></div>
+      <Card className="mt-4"><CardHeader><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><CardTitle>Catálogo y existencias</CardTitle><div className="flex flex-col gap-2 sm:flex-row"><Select value={almacenSeleccionado} onValueChange={setAlmacenSeleccionado}><SelectTrigger className="sm:w-56"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="todos">Todos los almacenes</SelectItem>{almacenes.filter(a=>a.activo).map(a=><SelectItem key={a.id} value={a.id}>{a.codigo} · {a.nombre}</SelectItem>)}</SelectContent></Select><div className="relative sm:w-72"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><Input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Código, producto, marca…" className="pl-9"/></div><Button variant={soloBajoStock?"default":"outline"} onClick={()=>setSoloBajoStock(v=>!v)}><TriangleAlert data-icon="inline-start"/>{soloBajoStock?"Mostrando bajos":"Stock bajo"}</Button></div></div></CardHeader><CardContent>{cargando?<p className="text-sm text-muted-foreground">Cargando inventario…</p>:filtrados.length===0?<p className="text-sm text-muted-foreground">No hay productos que coincidan con el filtro.</p>:<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Código</TableHead><TableHead>Producto</TableHead><TableHead className="hidden md:table-cell">Categoría</TableHead><TableHead>Stock</TableHead><TableHead className="hidden sm:table-cell">Mínimo</TableHead><TableHead className="hidden lg:table-cell">Ubicación</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader><TableBody>{filtrados.map(p=>{const stock=almacenSeleccionado==="todos"?p.stock:stockEnAlmacen(p.id,almacenSeleccionado);const minimo=almacenSeleccionado==="todos"?p.stock_minimo:stockMinEnAlmacen(p,almacenSeleccionado);const bajo=p.activo&&stock<=minimo;return <TableRow key={p.id}><TableCell className="font-mono">{p.codigo}</TableCell><TableCell><div className="font-medium">{p.nombre}</div><div className="text-xs text-muted-foreground">{[p.marca,p.modelo].filter(Boolean).join(" · ")||p.unidad}</div></TableCell><TableCell className="hidden md:table-cell">{p.categoria}</TableCell><TableCell><div className="flex items-center gap-2"><span className={bajo?"font-semibold text-destructive":"font-medium"}>{stock} {p.unidad}</span>{bajo&&<Badge variant="destructive">Bajo</Badge>}</div></TableCell><TableCell className="hidden sm:table-cell">{minimo}</TableCell><TableCell className="hidden lg:table-cell">{p.ubicacion||"—"}</TableCell><TableCell className="text-right"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon-sm" onClick={()=>abrirHistorial(p)} aria-label={`Historial de ${p.nombre}`}><History className="size-4"/></Button>{editable&&<><Button variant="ghost" size="icon-sm" onClick={()=>abrirMovimiento(p)} aria-label={`Movimiento de ${p.nombre}`}><PackagePlus className="size-4"/></Button><Button variant="ghost" size="icon-sm" onClick={()=>abrirEditar(p)} aria-label={`Editar ${p.nombre}`}><Edit3 className="size-4"/></Button></>}</div></TableCell></TableRow>})}</TableBody></Table></div>}</CardContent></Card>
+    </>:<>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><StatCard label="Almacenes activos" value={String(almacenes.filter(a=>a.activo).length)} icon={Warehouse} hint="Puntos de almacenamiento"/><StatCard label="Existencias registradas" value={String(existencias.length)} icon={Boxes} hint="Producto + almacén"/><StatCard label="Productos" value={String(productos.length)} icon={PackagePlus} hint="Catálogo general"/></div>
+      <Card className="mt-4"><CardHeader><div className="flex items-center justify-between"><CardTitle>Almacenes</CardTitle>{editable&&<Button onClick={abrirNuevoAlmacen}><Plus data-icon="inline-start"/>Nuevo almacén</Button>}</div></CardHeader><CardContent><div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">{almacenes.map(a=>{const total=existencias.filter(e=>e.almacen_id===a.id).length;const bajo=existencias.filter(e=>e.almacen_id===a.id&&e.stock<=e.stock_minimo).length;return <Card key={a.id} className="shadow-none"><CardHeader><div className="flex items-start justify-between gap-2"><div><CardTitle className="text-base">{a.nombre}</CardTitle><p className="mt-1 font-mono text-xs text-muted-foreground">{a.codigo}</p></div><Badge variant={a.activo?"secondary":"outline"}>{a.activo?"Activo":"Inactivo"}</Badge></div></CardHeader><CardContent className="space-y-2 text-sm"><div className="flex items-center gap-2 text-muted-foreground"><MapPin className="size-4"/>{a.ubicacion||"Sin ubicación"}</div><div className="flex justify-between"><span>Productos con existencia</span><span className="font-medium">{total}</span></div><div className="flex justify-between"><span>Stock bajo</span><span className={bajo?"font-semibold text-destructive":"font-medium"}>{bajo}</span></div>{editable&&<Button variant="outline" className="mt-2 w-full" onClick={()=>abrirEditarAlmacen(a)}><Edit3 data-icon="inline-start"/>Editar almacén</Button>}</CardContent></Card>})}{almacenes.length===0&&!cargando&&<p className="text-sm text-muted-foreground">Aún no hay almacenes. Crea el almacén principal para comenzar.</p>}</div></CardContent></Card>
+    </>}
 
-    const result = productoEditando
-      ? await supabase
-          .from("inventario_productos")
-          .update(payload)
-          .eq("id", productoEditando.id)
-          .select("*")
-          .single()
-      : await supabase
-          .from("inventario_productos")
-          .insert({ ...payload, creado_por: usuarioActual.id })
-          .select("*")
-          .single()
+    <Dialog open={productoOpen} onOpenChange={setProductoOpen}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"><form onSubmit={guardarProducto}><DialogHeader><DialogTitle>{productoEditando?`Editar ${productoEditando.nombre}`:"Nuevo producto"}</DialogTitle><DialogDescription>El stock se modifica mediante movimientos para conservar la trazabilidad.</DialogDescription></DialogHeader><FieldGroup className="py-2"><div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><Field><FieldLabel>Código</FieldLabel><Input value={productoForm.codigo} onChange={e=>setProductoForm(p=>({...p,codigo:e.target.value}))} required/></Field><Field><FieldLabel>Nombre</FieldLabel><Input value={productoForm.nombre} onChange={e=>setProductoForm(p=>({...p,nombre:e.target.value}))} required/></Field><Field><FieldLabel>Categoría</FieldLabel><Input value={productoForm.categoria} onChange={e=>setProductoForm(p=>({...p,categoria:e.target.value}))}/></Field><Field><FieldLabel>Unidad</FieldLabel><Select value={productoForm.unidad} onValueChange={v=>setProductoForm(p=>({...p,unidad:v}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{UNIDADES.map(u=><SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select></Field><Field><FieldLabel>Marca</FieldLabel><Input value={productoForm.marca} onChange={e=>setProductoForm(p=>({...p,marca:e.target.value}))}/></Field><Field><FieldLabel>Modelo / número de parte</FieldLabel><Input value={productoForm.modelo} onChange={e=>setProductoForm(p=>({...p,modelo:e.target.value}))}/></Field><Field><FieldLabel>Costo unitario</FieldLabel><Input type="number" min="0" step="0.01" value={productoForm.costo} onChange={e=>setProductoForm(p=>({...p,costo:e.target.value}))}/></Field><Field><FieldLabel>Precio de venta</FieldLabel><Input type="number" min="0" step="0.01" value={productoForm.precioVenta} onChange={e=>setProductoForm(p=>({...p,precioVenta:e.target.value}))}/></Field><Field><FieldLabel>Stock mínimo</FieldLabel><Input type="number" min="0" step="0.001" value={productoForm.stockMinimo} onChange={e=>setProductoForm(p=>({...p,stockMinimo:e.target.value}))}/></Field><Field><FieldLabel>Ubicación / estante</FieldLabel><Input value={productoForm.ubicacion} onChange={e=>setProductoForm(p=>({...p,ubicacion:e.target.value}))} placeholder="Estante 2 · Nivel B"/></Field></div><Field><FieldLabel>Descripción</FieldLabel><Textarea rows={3} value={productoForm.descripcion} onChange={e=>setProductoForm(p=>({...p,descripcion:e.target.value}))}/></Field></FieldGroup><DialogFooter><Button type="button" variant="outline" onClick={()=>setProductoOpen(false)}>Cancelar</Button><Button type="submit">{productoEditando?"Guardar cambios":"Crear producto"}</Button></DialogFooter></form></DialogContent></Dialog>
 
-    if (result.error || !result.data) {
-      toast.error(result.error?.message || "No se pudo guardar el producto.")
-      return
-    }
+    <Dialog open={almacenOpen} onOpenChange={setAlmacenOpen}><DialogContent className="sm:max-w-lg"><form onSubmit={guardarAlmacen}><DialogHeader><DialogTitle>{almacenEditando?`Editar ${almacenEditando.nombre}`:"Nuevo almacén"}</DialogTitle><DialogDescription>Define el punto físico donde se reciben, resguardan y entregan materiales.</DialogDescription></DialogHeader><FieldGroup className="py-2"><Field><FieldLabel>Código</FieldLabel><Input value={almacenForm.codigo} onChange={e=>setAlmacenForm(p=>({...p,codigo:e.target.value}))} placeholder="ALM-01" required/></Field><Field><FieldLabel>Nombre</FieldLabel><Input value={almacenForm.nombre} onChange={e=>setAlmacenForm(p=>({...p,nombre:e.target.value}))} placeholder="Almacén principal" required/></Field><Field><FieldLabel>Ubicación</FieldLabel><Input value={almacenForm.ubicacion} onChange={e=>setAlmacenForm(p=>({...p,ubicacion:e.target.value}))} placeholder="Tuxtla Gutiérrez · Bodega 1"/></Field><Field><FieldLabel>Descripción</FieldLabel><Textarea rows={3} value={almacenForm.descripcion} onChange={e=>setAlmacenForm(p=>({...p,descripcion:e.target.value}))}/></Field></FieldGroup><DialogFooter><Button type="button" variant="outline" onClick={()=>setAlmacenOpen(false)}>Cancelar</Button><Button type="submit">{almacenEditando?"Guardar cambios":"Crear almacén"}</Button></DialogFooter></form></DialogContent></Dialog>
 
-    toast.success(productoEditando ? "Producto actualizado." : "Producto creado.")
-    setProductoOpen(false)
-    await cargar()
-  }
+    <Dialog open={movimientoOpen} onOpenChange={setMovimientoOpen}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg"><form onSubmit={registrarMovimiento}><DialogHeader><DialogTitle>Registrar movimiento</DialogTitle><DialogDescription>Todo movimiento queda asociado a un almacén. Las transferencias no alteran el stock global, solo lo redistribuyen.</DialogDescription></DialogHeader><FieldGroup className="py-2"><Field><FieldLabel>Producto</FieldLabel><Select value={movimientoForm.productoId} onValueChange={v=>setMovimientoForm(p=>({...p,productoId:v}))}><SelectTrigger><SelectValue placeholder="Selecciona un producto"/></SelectTrigger><SelectContent>{productos.filter(p=>p.activo).map(p=><SelectItem key={p.id} value={p.id}>{p.codigo} · {p.nombre}</SelectItem>)}</SelectContent></Select></Field><Field><FieldLabel>Almacén origen / movimiento</FieldLabel><Select value={movimientoForm.almacenId} onValueChange={v=>setMovimientoForm(p=>({...p,almacenId:v}))}><SelectTrigger><SelectValue placeholder="Selecciona un almacén"/></SelectTrigger><SelectContent>{almacenes.filter(a=>a.activo).map(a=><SelectItem key={a.id} value={a.id}>{a.codigo} · {a.nombre}</SelectItem>)}</SelectContent></Select></Field><div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><Field><FieldLabel>Tipo</FieldLabel><Select value={movimientoForm.tipo} onValueChange={v=>setMovimientoForm(p=>({...p,tipo:v}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{TIPOS_MOVIMIENTO.map(t=><SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></Field><Field><FieldLabel>{movimientoForm.tipo==="Ajuste"?"Stock nuevo":"Cantidad"}</FieldLabel><Input type="number" min="0" step="0.001" value={movimientoForm.cantidad} onChange={e=>setMovimientoForm(p=>({...p,cantidad:e.target.value}))} required/></Field></div>{movimientoForm.tipo==="Transferencia"&&<Field><FieldLabel>Almacén destino</FieldLabel><Select value={movimientoForm.almacenDestinoId} onValueChange={v=>setMovimientoForm(p=>({...p,almacenDestinoId:v}))}><SelectTrigger><SelectValue placeholder="Selecciona destino"/></SelectTrigger><SelectContent>{almacenes.filter(a=>a.activo&&a.id!==movimientoForm.almacenId).map(a=><SelectItem key={a.id} value={a.id}>{a.codigo} · {a.nombre}</SelectItem>)}</SelectContent></Select></Field>}<div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><Field><FieldLabel>Costo unitario</FieldLabel><Input type="number" min="0" step="0.01" value={movimientoForm.costoUnitario} onChange={e=>setMovimientoForm(p=>({...p,costoUnitario:e.target.value}))}/></Field><Field><FieldLabel>Referencia</FieldLabel><Input value={movimientoForm.referencia} onChange={e=>setMovimientoForm(p=>({...p,referencia:e.target.value}))} placeholder="Factura, compra, vale…"/></Field></div><Field><FieldLabel>Orden de servicio (opcional)</FieldLabel><Select value={movimientoForm.ordenId||"ninguna"} onValueChange={v=>setMovimientoForm(p=>({...p,ordenId:v==="ninguna"?"":v}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="ninguna">Sin orden</SelectItem>{ordenes.map(o=><SelectItem key={o.id} value={o.id}>{o.folio}</SelectItem>)}</SelectContent></Select></Field><Field><FieldLabel>Notas</FieldLabel><Textarea rows={2} value={movimientoForm.notas} onChange={e=>setMovimientoForm(p=>({...p,notas:e.target.value}))}/></Field></FieldGroup><DialogFooter><Button type="button" variant="outline" onClick={()=>setMovimientoOpen(false)}>Cancelar</Button><Button type="submit">Registrar movimiento</Button></DialogFooter></form></DialogContent></Dialog>
 
-  const registrarMovimiento = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (!editable) return
-    const cantidad = Number(movimientoForm.cantidad)
-    if (!movimientoForm.productoId || !Number.isFinite(cantidad) || cantidad <= 0) {
-      toast.error("Selecciona un producto e indica una cantidad válida.")
-      return
-    }
-    const result = await supabase
-      .from("inventario_movimientos")
-      .insert({
-        producto_id: movimientoForm.productoId,
-        tipo: movimientoForm.tipo,
-        cantidad,
-        costo_unitario: Number(movimientoForm.costoUnitario) || 0,
-        referencia: movimientoForm.referencia.trim() || null,
-        orden_id: movimientoForm.ordenId || null,
-        notas: movimientoForm.notas.trim() || null,
-        creado_por: usuarioActual.id,
-      })
-      .select("*")
-      .single()
-
-    if (result.error || !result.data) {
-      toast.error(result.error?.message || "No se pudo registrar el movimiento.")
-      return
-    }
-
-    toast.success("Movimiento registrado y stock actualizado.")
-    setMovimientoOpen(false)
-    setMovimientoForm({
-      productoId: "",
-      tipo: "Entrada",
-      cantidad: "",
-      costoUnitario: "",
-      referencia: "",
-      ordenId: "",
-      notas: "",
-    })
-    await cargar()
-  }
-
-  const abrirMovimiento = (producto?: Producto) => {
-    setMovimientoForm((prev) => ({ ...prev, productoId: producto?.id ?? "" }))
-    setMovimientoOpen(true)
-  }
-
-  const abrirHistorial = (producto: Producto) => {
-    setProductoHistorial(producto)
-    setHistorialOpen(true)
-  }
-
-  const movimientosProducto = productoHistorial
-    ? movimientos.filter((m) => m.producto_id === productoHistorial.id)
-    : []
-
-  return (
-    <>
-      <PageHeader
-        title="Inventario"
-        description="Productos, existencias, movimientos y alertas de stock."
-        actions={
-          editable ? (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => abrirMovimiento()}>
-                <History data-icon="inline-start" />
-                Movimiento
-              </Button>
-              <Button onClick={abrirNuevo}>
-                <PackagePlus data-icon="inline-start" />
-                Nuevo producto
-              </Button>
-            </div>
-          ) : null
-        }
-      />
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Productos" value={String(productos.length)} icon={Boxes} hint={`${productos.filter((p) => p.activo).length} activos`} />
-        <StatCard label="Stock bajo" value={String(bajos.length)} icon={TriangleAlert} hint="Requieren reposición" accent={bajos.length ? "destructive" : undefined} />
-        <StatCard label="Valor de inventario" value={formatMoneda(valorInventario)} icon={PackagePlus} hint="A costo registrado" />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>Catálogo y existencias</CardTitle>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="relative min-w-0 sm:w-72">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Código, producto, marca…" className="pl-9" />
-              </div>
-              <Button variant={soloBajoStock ? "default" : "outline"} onClick={() => setSoloBajoStock((v) => !v)}>
-                <TriangleAlert data-icon="inline-start" />
-                {soloBajoStock ? "Mostrando bajos" : "Stock bajo"}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {cargando ? (
-            <p className="text-sm text-muted-foreground">Cargando inventario…</p>
-          ) : filtrados.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No hay productos que coincidan con el filtro.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Producto</TableHead>
-                    <TableHead className="hidden md:table-cell">Categoría</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead className="hidden sm:table-cell">Mínimo</TableHead>
-                    <TableHead className="hidden lg:table-cell">Ubicación</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtrados.map((p) => {
-                    const bajo = p.activo && p.stock <= p.stock_minimo
-                    return (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-mono">{p.codigo}</TableCell>
-                        <TableCell>
-                          <div className="font-medium">{p.nombre}</div>
-                          <div className="text-xs text-muted-foreground">{[p.marca, p.modelo].filter(Boolean).join(" · ") || p.unidad}</div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">{p.categoria}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className={bajo ? "font-semibold text-destructive" : "font-medium"}>{p.stock} {p.unidad}</span>
-                            {bajo && <Badge variant="destructive">Bajo</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">{p.stock_minimo}</TableCell>
-                        <TableCell className="hidden lg:table-cell">{p.ubicacion || "—"}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon-sm" onClick={() => abrirHistorial(p)} aria-label={`Historial de ${p.nombre}`}>
-                              <History className="size-4" />
-                            </Button>
-                            {editable && (
-                              <>
-                                <Button variant="ghost" size="icon-sm" onClick={() => abrirMovimiento(p)} aria-label={`Movimiento de ${p.nombre}`}>
-                                  <PackagePlus className="size-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon-sm" onClick={() => abrirEditar(p)} aria-label={`Editar ${p.nombre}`}>
-                                  <Edit3 className="size-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Dialog open={productoOpen} onOpenChange={setProductoOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <form onSubmit={guardarProducto}>
-            <DialogHeader>
-              <DialogTitle>{productoEditando ? `Editar ${productoEditando.nombre}` : "Nuevo producto"}</DialogTitle>
-              <DialogDescription>El stock inicial se registra mediante un movimiento para conservar el historial.</DialogDescription>
-            </DialogHeader>
-            <FieldGroup className="py-2">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field><FieldLabel>Código</FieldLabel><Input value={productoForm.codigo} onChange={(e) => setProductoForm((p) => ({ ...p, codigo: e.target.value }))} required /></Field>
-                <Field><FieldLabel>Nombre</FieldLabel><Input value={productoForm.nombre} onChange={(e) => setProductoForm((p) => ({ ...p, nombre: e.target.value }))} required /></Field>
-                <Field><FieldLabel>Categoría</FieldLabel><Input value={productoForm.categoria} onChange={(e) => setProductoForm((p) => ({ ...p, categoria: e.target.value }))} /></Field>
-                <Field><FieldLabel>Unidad</FieldLabel><Select value={productoForm.unidad} onValueChange={(v) => setProductoForm((p) => ({ ...p, unidad: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{UNIDADES.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select></Field>
-                <Field><FieldLabel>Marca</FieldLabel><Input value={productoForm.marca} onChange={(e) => setProductoForm((p) => ({ ...p, marca: e.target.value }))} /></Field>
-                <Field><FieldLabel>Modelo / número de parte</FieldLabel><Input value={productoForm.modelo} onChange={(e) => setProductoForm((p) => ({ ...p, modelo: e.target.value }))} /></Field>
-                <Field><FieldLabel>Costo unitario</FieldLabel><Input type="number" min="0" step="0.01" value={productoForm.costo} onChange={(e) => setProductoForm((p) => ({ ...p, costo: e.target.value }))} /></Field>
-                <Field><FieldLabel>Precio de venta</FieldLabel><Input type="number" min="0" step="0.01" value={productoForm.precioVenta} onChange={(e) => setProductoForm((p) => ({ ...p, precioVenta: e.target.value }))} /></Field>
-                <Field><FieldLabel>Stock mínimo</FieldLabel><Input type="number" min="0" step="0.001" value={productoForm.stockMinimo} onChange={(e) => setProductoForm((p) => ({ ...p, stockMinimo: e.target.value }))} /></Field>
-                <Field><FieldLabel>Ubicación</FieldLabel><Input value={productoForm.ubicacion} onChange={(e) => setProductoForm((p) => ({ ...p, ubicacion: e.target.value }))} placeholder="Almacén A · Estante 2" /></Field>
-              </div>
-              <Field><FieldLabel>Descripción</FieldLabel><Textarea rows={3} value={productoForm.descripcion} onChange={(e) => setProductoForm((p) => ({ ...p, descripcion: e.target.value }))} /></Field>
-            </FieldGroup>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setProductoOpen(false)}>Cancelar</Button>
-              <Button type="submit">{productoEditando ? "Guardar cambios" : "Crear producto"}</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={movimientoOpen} onOpenChange={setMovimientoOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <form onSubmit={registrarMovimiento}>
-            <DialogHeader>
-              <DialogTitle>Registrar movimiento</DialogTitle>
-              <DialogDescription>El stock se actualiza automáticamente y no se permite dejar existencias negativas.</DialogDescription>
-            </DialogHeader>
-            <FieldGroup className="py-2">
-              <Field>
-                <FieldLabel>Producto</FieldLabel>
-                <Select value={movimientoForm.productoId} onValueChange={(v) => setMovimientoForm((p) => ({ ...p, productoId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecciona un producto" /></SelectTrigger>
-                  <SelectContent>{productos.filter((p) => p.activo).map((p) => <SelectItem key={p.id} value={p.id}>{p.codigo} · {p.nombre}</SelectItem>)}</SelectContent>
-                </Select>
-              </Field>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field><FieldLabel>Tipo</FieldLabel><Select value={movimientoForm.tipo} onValueChange={(v) => setMovimientoForm((p) => ({ ...p, tipo: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TIPOS_MOVIMIENTO.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></Field>
-                <Field><FieldLabel>{movimientoForm.tipo === "Ajuste" ? "Stock nuevo" : "Cantidad"}</FieldLabel><Input type="number" min="0" step="0.001" value={movimientoForm.cantidad} onChange={(e) => setMovimientoForm((p) => ({ ...p, cantidad: e.target.value }))} required /></Field>
-                <Field><FieldLabel>Costo unitario</FieldLabel><Input type="number" min="0" step="0.01" value={movimientoForm.costoUnitario} onChange={(e) => setMovimientoForm((p) => ({ ...p, costoUnitario: e.target.value }))} /></Field>
-                <Field><FieldLabel>Referencia</FieldLabel><Input value={movimientoForm.referencia} onChange={(e) => setMovimientoForm((p) => ({ ...p, referencia: e.target.value }))} placeholder="Factura, compra, vale…" /></Field>
-              </div>
-              <Field><FieldLabel>Orden de servicio (opcional)</FieldLabel><Select value={movimientoForm.ordenId || "ninguna"} onValueChange={(v) => setMovimientoForm((p) => ({ ...p, ordenId: v === "ninguna" ? "" : v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ninguna">Sin orden</SelectItem>{ordenes.map((o) => <SelectItem key={o.id} value={o.id}>{o.folio}</SelectItem>)}</SelectContent></Select></Field>
-              <Field><FieldLabel>Notas</FieldLabel><Textarea rows={2} value={movimientoForm.notas} onChange={(e) => setMovimientoForm((p) => ({ ...p, notas: e.target.value }))} /></Field>
-            </FieldGroup>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setMovimientoOpen(false)}>Cancelar</Button>
-              <Button type="submit">Registrar movimiento</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={historialOpen} onOpenChange={setHistorialOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Historial de {productoHistorial?.nombre}</DialogTitle>
-            <DialogDescription>Movimientos que explican la existencia actual.</DialogDescription>
-          </DialogHeader>
-          {movimientosProducto.length === 0 ? (
-            <p className="py-4 text-sm text-muted-foreground">Aún no hay movimientos para este producto.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Tipo</TableHead><TableHead>Cantidad</TableHead><TableHead>Antes</TableHead><TableHead>Después</TableHead><TableHead>Referencia</TableHead></TableRow></TableHeader>
-                <TableBody>{movimientosProducto.map((m) => <TableRow key={m.id}><TableCell>{new Date(m.created_at).toLocaleString("es-MX")}</TableCell><TableCell>{m.tipo}</TableCell><TableCell>{m.cantidad}</TableCell><TableCell>{m.stock_anterior}</TableCell><TableCell className="font-medium">{m.stock_nuevo}</TableCell><TableCell>{m.referencia || "—"}</TableCell></TableRow>)}</TableBody>
-              </Table>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
-  )
+    <Dialog open={historialOpen} onOpenChange={setHistorialOpen}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl"><DialogHeader><DialogTitle>Historial de {productoHistorial?.nombre}</DialogTitle><DialogDescription>Entradas, salidas, consumos y transferencias del producto.</DialogDescription></DialogHeader>{movimientosProducto.length===0?<p className="py-4 text-sm text-muted-foreground">Aún no hay movimientos para este producto.</p>:<div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Tipo</TableHead><TableHead>Almacén</TableHead><TableHead>Destino</TableHead><TableHead>Cantidad</TableHead><TableHead>Antes</TableHead><TableHead>Después</TableHead><TableHead>Referencia</TableHead></TableRow></TableHeader><TableBody>{movimientosProducto.map(m=><TableRow key={m.id}><TableCell>{new Date(m.created_at).toLocaleString("es-MX")}</TableCell><TableCell>{m.tipo}</TableCell><TableCell>{almacenes.find(a=>a.id===m.almacen_id)?.nombre||"—"}</TableCell><TableCell>{almacenes.find(a=>a.id===m.almacen_destino_id)?.nombre||"—"}</TableCell><TableCell>{m.cantidad}</TableCell><TableCell>{m.stock_anterior}</TableCell><TableCell className="font-medium">{m.stock_nuevo}</TableCell><TableCell>{m.referencia||"—"}</TableCell></TableRow>)}</TableBody></Table></div>}</DialogContent></Dialog>
+  </>
 }
