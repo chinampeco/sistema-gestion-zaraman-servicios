@@ -30,6 +30,7 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
   const { actualizarOrden, usuarioActual } = useStore()
   const [fase, setFase] = React.useState<FaseEvidencia>("Durante")
   const [subiendo, setSubiendo] = React.useState(false)
+  const [urls, setUrls] = React.useState<Record<string, string>>({})
   const inputRef = React.useRef<HTMLInputElement>(null)
   const bloqueada = Boolean(orden.firmaCliente)
   const esTecnicoAsignado =
@@ -39,6 +40,29 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
   const puedeEditar = !bloqueada && (esTecnicoAsignado || puedeReasignarOrdenes(usuarioActual.rol))
 
   const evidencias = orden.evidencias
+
+  React.useEffect(() => {
+    let activo = true
+    const cargarUrls = async () => {
+      const supabase = createClient()
+      const entradas = await Promise.all(
+        evidencias
+          .filter((ev) => Boolean(ev.path))
+          .map(async (ev) => {
+            const { data, error } = await supabase.storage
+              .from(BUCKET)
+              .createSignedUrl(ev.path, 3600)
+            return error || !data?.signedUrl ? null : [ev.path, data.signedUrl] as const
+          }),
+      )
+      if (!activo) return
+      setUrls(Object.fromEntries(entradas.filter(Boolean) as Array<readonly [string, string]>))
+    }
+    void cargarUrls()
+    return () => {
+      activo = false
+    }
+  }, [evidencias])
 
   const handleUpload = async (files: FileList | null) => {
     if (!puedeEditar) {
@@ -55,6 +79,10 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
     try {
       const nuevas: EvidenciaOrden[] = []
       for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) {
+          toast.error(`${file.name} no es una imagen válida.`)
+          continue
+        }
         const ext = file.name.split(".").pop() || "jpg"
         const path = `${orden.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
         const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
@@ -62,10 +90,9 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
           toast.error(`No se pudo subir ${file.name}.`)
           continue
         }
-        const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
         nuevas.push({
           id: `ev-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          url: data.publicUrl,
+          url: "",
           path,
           fase,
           descripcion: file.name,
@@ -92,7 +119,11 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
       return
     }
     const supabase = createClient()
-    await supabase.storage.from(BUCKET).remove([ev.path])
+    const { error } = await supabase.storage.from(BUCKET).remove([ev.path])
+    if (error) {
+      toast.error("No se pudo eliminar el archivo.")
+      return
+    }
     await actualizarOrden(orden.id, { evidencias: evidencias.filter((e) => e.id !== ev.id) })
     toast.success("Evidencia eliminada.")
   }
@@ -137,7 +168,7 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
           {evidencias.map((ev) => (
             <figure key={ev.id} className="group relative overflow-hidden rounded-lg border border-border">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={ev.url || "/placeholder.svg"} alt={ev.descripcion || "Evidencia"} className="aspect-square w-full object-cover" crossOrigin="anonymous" />
+              <img src={urls[ev.path] || "/placeholder.svg"} alt={ev.descripcion || "Evidencia"} className="aspect-square w-full object-cover" crossOrigin="anonymous" />
               <figcaption className="flex items-center justify-between gap-1 p-2">
                 <Badge variant="outline" className="text-xs">{ev.fase}</Badge>
                 {puedeEditar ? (
