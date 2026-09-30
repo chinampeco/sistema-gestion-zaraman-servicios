@@ -145,6 +145,7 @@ export default function OrdenDetailPage() {
                   <ReasignarTecnico
                     tecnicos={tecnicos}
                     tecnicoActualId={orden.tecnicoId}
+                    tecnicoActualNombre={tecnico?.nombre ?? null}
                     onReasignar={async (nuevoId) => {
                       await actualizarOrden(orden.id, { tecnicoId: nuevoId })
                       const nombre = tecnicos.find((t) => t.id === nuevoId)?.nombre ?? "sin asignar"
@@ -185,10 +186,12 @@ export default function OrdenDetailPage() {
 function ReasignarTecnico({
   tecnicos,
   tecnicoActualId,
+  tecnicoActualNombre,
   onReasignar,
 }: {
   tecnicos: { id: string; nombre: string; activo: boolean }[]
   tecnicoActualId: string | null
+  tecnicoActualNombre: string | null
   onReasignar: (nuevoId: string | null) => Promise<void>
 }) {
   const [valor, setValor] = React.useState(tecnicoActualId ?? "sin-asignar")
@@ -205,6 +208,9 @@ function ReasignarTecnico({
   }
 
   const activos = tecnicos.filter((t) => t.activo || t.id === tecnicoActualId)
+  const tecnicoActualIncluido = tecnicoActualId
+    ? activos.some((t) => t.id === tecnicoActualId)
+    : true
 
   return (
     <div className="mt-2 flex flex-col gap-2 rounded-md border border-dashed p-2">
@@ -213,9 +219,24 @@ function ReasignarTecnico({
         Reasignar técnico
       </span>
       <Select value={valor} onValueChange={(v) => setValor((v as string) ?? "sin-asignar")}>
-        <SelectTrigger className="w-full" size="sm"><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+        <SelectTrigger className="w-full" size="sm">
+          <SelectValue placeholder="Sin asignar">
+            {(value) => {
+              if (value === "sin-asignar") return "Sin asignar"
+              if (tecnicoActualId && value === tecnicoActualId) {
+                return tecnicoActualNombre ?? "Técnico asignado"
+              }
+              return tecnicos.find((t) => t.id === value)?.nombre ?? "Selecciona un técnico"
+            }}
+          </SelectValue>
+        </SelectTrigger>
         <SelectContent>
           <SelectItem value="sin-asignar">Sin asignar</SelectItem>
+          {tecnicoActualId && !tecnicoActualIncluido ? (
+            <SelectItem value={tecnicoActualId}>
+              {tecnicoActualNombre ?? "Técnico asignado"}
+            </SelectItem>
+          ) : null}
           {activos.map((t) => <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>)}
         </SelectContent>
       </Select>
