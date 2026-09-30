@@ -147,9 +147,12 @@ export default function OrdenDetailPage() {
                     tecnicoActualId={orden.tecnicoId}
                     tecnicoActualNombre={tecnico?.nombre ?? null}
                     onReasignar={async (nuevoId) => {
-                      await actualizarOrden(orden.id, { tecnicoId: nuevoId })
+                      await actualizarOrden(orden.id, {
+                        tecnicoId: nuevoId,
+                        ...(nuevoId === null ? { estado: "Pendiente de asignación" } : {}),
+                      })
                       const nombre = tecnicos.find((t) => t.id === nuevoId)?.nombre ?? "sin asignar"
-                      toast.success(nuevoId ? `Orden reasignada a ${nombre}. Se le notificará en su portal.` : "Se quitó el técnico asignado.")
+                      toast.success(nuevoId ? `Orden reasignada a ${nombre}. Se le notificará en su portal.` : "Se quitó el técnico asignado y la orden volvió a pendientes de asignación.")
                     }}
                   />
                 ) : null}
