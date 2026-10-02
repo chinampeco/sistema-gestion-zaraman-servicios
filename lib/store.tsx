@@ -89,6 +89,20 @@ interface StoreContextValue {
 
   crearOrden: (data: Omit<OrdenServicio, "id" | "folio">) => Promise<OrdenServicio | null>
   actualizarOrden: (id: string, data: Partial<OrdenServicio>) => Promise<void>
+  asignarOrdenConGarantia: (
+    ordenId: string,
+    tecnicoId: string,
+    historial: OrdenServicio["historial"],
+    garantia: {
+      ordenOrigenId: string | null
+      tieneGarantia: boolean
+      duracionValor: number | null
+      duracionUnidad: "Días" | "Meses" | "Años"
+      cobertura: string
+      condiciones: string
+      resultado: string
+    },
+  ) => Promise<OrdenServicio | null>
   eliminarOrden: (id: string) => Promise<boolean>
 
   crearTicket: (data: Omit<Ticket, "id" | "folio">) => Promise<Ticket | null>
@@ -400,6 +414,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const actualizada = mapOrden(row)
         setOrdenes((prev) => prev.map((o) => (o.id === ordenId ? actualizada : o)))
         toast.success("Orden actualizada.")
+      },
+      asignarOrdenConGarantia: async (ordenId, tecnicoId, historial, garantia) => {
+        const { data: row, error } = await supabase.rpc("asignar_orden_con_garantia", {
+          p_orden_id: ordenId,
+          p_tecnico_id: tecnicoId,
+          p_historial: historial,
+          p_orden_origen_id: garantia.ordenOrigenId,
+          p_tiene_garantia: garantia.tieneGarantia,
+          p_duracion_valor: garantia.tieneGarantia ? garantia.duracionValor : null,
+          p_duracion_unidad: garantia.tieneGarantia ? garantia.duracionUnidad : null,
+          p_cobertura: garantia.tieneGarantia ? garantia.cobertura : null,
+          p_condiciones: garantia.tieneGarantia ? garantia.condiciones : null,
+          p_resultado: garantia.resultado,
+        })
+        if (error || !row) {
+          toast.error(error?.message ?? "No se pudo asignar la orden ni guardar la garantía.")
+          return null
+        }
+        const actualizada = mapOrden(row)
+        setOrdenes((prev) => prev.map((o) => (o.id === ordenId ? actualizada : o)))
+        return actualizada
       },
       eliminarOrden: async (ordenId) => {
         const { error } = await supabase.from("ordenes_servicio").delete().eq("id", ordenId)
