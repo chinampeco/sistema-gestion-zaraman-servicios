@@ -25,15 +25,6 @@ begin
     raise exception 'No autorizado para asignar órdenes y configurar garantías';
   end if;
 
-  if not exists (
-    select 1
-    from public.tecnicos t
-    where t.id = p_tecnico_id
-      and coalesce(t.activo, true) = true
-  ) then
-    raise exception 'El técnico seleccionado no existe o está inactivo';
-  end if;
-
   if p_orden_origen_id is null and p_tiene_garantia
      and (p_duracion_valor is null or p_duracion_valor <= 0) then
     raise exception 'La duración de la garantía debe ser mayor que cero';
