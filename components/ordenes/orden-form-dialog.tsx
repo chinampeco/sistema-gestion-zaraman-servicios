@@ -167,21 +167,39 @@ export function OrdenFormDialog({
       return
     }
 
-    const hoy = new Date().toISOString().slice(0, 10)
-    const cierreAuto =
-      form.estado === "Terminada" ? form.fechaCierre || hoy : form.fechaCierre || null
-    const payload: FormState = {
-      ...form,
-      fechaProgramada: form.fechaProgramada || null,
-      fechaInicio: form.fechaInicio || null,
-      fechaCierre: cierreAuto,
-      tecnicoId: form.tecnicoId || null,
-    }
-
     if (orden) {
-      await actualizarOrden(orden.id, payload)
+      // Los datos operativos del técnico no se envían desde esta ventana.
+      // Así, editar la orden administrativa nunca sobrescribe el parte técnico.
+      await actualizarOrden(orden.id, {
+        clienteId: form.clienteId,
+        equipoId: form.equipoId,
+        fechaSolicitud: form.fechaSolicitud,
+        fechaProgramada: form.fechaProgramada || null,
+        horaProgramada: form.horaProgramada || null,
+        tipoServicio: form.tipoServicio,
+        prioridad: form.prioridad,
+        estado: form.estado,
+        descripcionFalla: form.descripcionFalla,
+      })
       toast.success("Orden actualizada correctamente.")
     } else {
+      const payload: FormState = {
+        ...form,
+        fechaProgramada: form.fechaProgramada || null,
+        fechaInicio: null,
+        fechaCierre: null,
+        tecnicoId: null,
+        diagnostico: "",
+        trabajoRealizado: "",
+        materiales: "",
+        materialesDetalle: [],
+        evidencias: [],
+        horasTrabajadas: null,
+        observaciones: "",
+        firmaCliente: "",
+        firmaFecha: null,
+        cerradaPor: null,
+      }
       const nueva = await crearOrden(payload)
       if (!nueva) return
       toast.success("Orden de servicio creada correctamente.")
@@ -199,8 +217,8 @@ export function OrdenFormDialog({
             </DialogTitle>
             <DialogDescription>
               {orden
-                ? "Actualiza los datos de la orden de servicio."
-                : "El folio se genera automáticamente al guardar."}
+                ? "Actualiza los datos administrativos de la orden. Los datos capturados por el técnico se muestran solo como consulta."
+                : "El folio se genera automáticamente al guardar. El diagnóstico, trabajo, materiales y demás datos operativos los capturará el técnico al iniciar el servicio."}
             </DialogDescription>
           </DialogHeader>
 
@@ -266,11 +284,11 @@ export function OrdenFormDialog({
               </Field>
               <Field>
                 <FieldLabel htmlFor="f-inicio">Fecha de inicio</FieldLabel>
-                <Input id="f-inicio" type="date" value={form.fechaInicio ?? ""} onChange={(e) => set("fechaInicio", e.target.value)} />
+                <Input id="f-inicio" type="date" value={form.fechaInicio ?? ""} disabled className="bg-muted/50" />
               </Field>
               <Field>
                 <FieldLabel htmlFor="f-cierre">Fecha de cierre</FieldLabel>
-                <Input id="f-cierre" type="date" value={form.fechaCierre ?? ""} onChange={(e) => set("fechaCierre", e.target.value)} />
+                <Input id="f-cierre" type="date" value={form.fechaCierre ?? ""} disabled className="bg-muted/50" />
               </Field>
 
               <Field className="sm:col-span-2">
@@ -278,24 +296,24 @@ export function OrdenFormDialog({
                 <Textarea id="falla" value={form.descripcionFalla} onChange={(e) => set("descripcionFalla", e.target.value)} rows={2} />
               </Field>
               <Field className="sm:col-span-2">
-                <FieldLabel htmlFor="diagnostico">Diagnóstico</FieldLabel>
-                <Textarea id="diagnostico" value={form.diagnostico} onChange={(e) => set("diagnostico", e.target.value)} rows={2} />
+                <FieldLabel htmlFor="diagnostico">Diagnóstico <span className="text-muted-foreground">(técnico)</span></FieldLabel>
+                <Textarea id="diagnostico" value={form.diagnostico} readOnly disabled rows={2} className="bg-muted/50" />
               </Field>
               <Field className="sm:col-span-2">
-                <FieldLabel htmlFor="trabajo">Trabajo realizado</FieldLabel>
-                <Textarea id="trabajo" value={form.trabajoRealizado} onChange={(e) => set("trabajoRealizado", e.target.value)} rows={2} />
+                <FieldLabel htmlFor="trabajo">Trabajo realizado <span className="text-muted-foreground">(técnico)</span></FieldLabel>
+                <Textarea id="trabajo" value={form.trabajoRealizado} readOnly disabled rows={2} className="bg-muted/50" />
               </Field>
               <Field>
-                <FieldLabel htmlFor="materiales">Materiales</FieldLabel>
-                <Textarea id="materiales" value={form.materiales} onChange={(e) => set("materiales", e.target.value)} rows={2} />
+                <FieldLabel htmlFor="materiales">Materiales <span className="text-muted-foreground">(técnico)</span></FieldLabel>
+                <Textarea id="materiales" value={form.materiales} readOnly disabled rows={2} className="bg-muted/50" />
               </Field>
               <Field>
-                <FieldLabel htmlFor="horas">Horas trabajadas</FieldLabel>
-                <Input id="horas" type="number" min={0} step="0.5" value={form.horasTrabajadas ?? ""} onChange={(e) => set("horasTrabajadas", e.target.value === "" ? null : Number(e.target.value))} />
+                <FieldLabel htmlFor="horas">Horas trabajadas <span className="text-muted-foreground">(técnico)</span></FieldLabel>
+                <Input id="horas" type="number" value={form.horasTrabajadas ?? ""} disabled className="bg-muted/50" />
               </Field>
               <Field className="sm:col-span-2">
-                <FieldLabel htmlFor="observaciones">Observaciones</FieldLabel>
-                <Textarea id="observaciones" value={form.observaciones} onChange={(e) => set("observaciones", e.target.value)} rows={2} />
+                <FieldLabel htmlFor="observaciones">Observaciones <span className="text-muted-foreground">(técnico)</span></FieldLabel>
+                <Textarea id="observaciones" value={form.observaciones} readOnly disabled rows={2} className="bg-muted/50" />
               </Field>
             </div>
           </FieldGroup>
