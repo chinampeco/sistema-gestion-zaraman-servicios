@@ -416,56 +416,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         toast.success("Orden actualizada.")
       },
       asignarOrdenConGarantia: async (ordenId, tecnicoId, historial, garantia) => {
-        // La asignación se realiza directamente sobre las tablas para evitar
-        // depender de la RPC asignar_orden_con_garantia y su schema cache.
-        const { data: row, error: orderError } = await supabase
-          .from("ordenes_servicio")
-          .update({
-            tecnico_id: tecnicoId,
-            estado: "Asignada",
-            historial,
+        // La base de datos expone esta operación como una RPC atómica.
+        // La función realiza la asignación y guarda la garantía en una sola transacción.
+        const { data: row, error } = await supabase
+          .rpc("asignar_orden_con_garantia", {
+            p_orden_id: ordenId,
+            p_tecnico_id: tecnicoId,
+            p_historial: historial,
+            p_orden_origen_id: garantia.ordenOrigenId,
+            p_tiene_garantia: garantia.tieneGarantia,
+            p_duracion_valor: garantia.tieneGarantia ? garantia.duracionValor : null,
+            p_duracion_unidad: garantia.tieneGarantia ? garantia.duracionUnidad : null,
+            p_cobertura: garantia.tieneGarantia ? garantia.cobertura : null,
+            p_condiciones: garantia.tieneGarantia ? garantia.condiciones : null,
+            p_resultado: garantia.resultado,
           })
-          .eq("id", ordenId)
-          .select("*")
           .single()
 
-        if (orderError || !row) {
-          toast.error(orderError?.message ?? "No se pudo asignar el técnico.")
+        if (error || !row) {
+          toast.error(error?.message ?? "No se pudo asignar el técnico.")
           return null
-        }
-
-        // Si el servicio no tiene garantía, no es necesario tocar la tabla
-        // orden_garantias. Esto evita que una asignación normal dependa del
-        // endpoint/cache de esa tabla.
-        if (garantia.tieneGarantia) {
-          const { error: garantiaError } = await supabase
-            .from("orden_garantias")
-            .upsert(
-              {
-                orden_id: ordenId,
-                orden_origen_id: garantia.ordenOrigenId,
-                tiene_garantia: true,
-                duracion_valor: garantia.duracionValor,
-                duracion_unidad: garantia.duracionUnidad,
-                fecha_inicio: null,
-                fecha_fin: null,
-                cobertura: garantia.cobertura,
-                condiciones: garantia.condiciones,
-                resultado: garantia.resultado,
-              },
-              { onConflict: "orden_id" },
-            )
-
-          if (garantiaError) {
-            // Evita dejar la orden en un estado ambiguo si la garantía no pudo guardarse.
-            await supabase
-              .from("ordenes_servicio")
-              .update({ tecnico_id: null, estado: "Pendiente", historial: historial.slice(0, -1) })
-              .eq("id", ordenId)
-
-            toast.error(garantiaError.message ?? "No se pudo guardar la garantía.")
-            return null
-          }
         }
 
         const actualizada = mapOrden(row)
