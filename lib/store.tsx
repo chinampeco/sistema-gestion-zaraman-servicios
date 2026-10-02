@@ -419,7 +419,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // La base de datos expone esta operación como una RPC atómica.
         // La función realiza la asignación y guarda la garantía en una sola transacción.
         const { data: row, error } = await supabase
-          .rpc("asignar_orden_con_garantia", {
+          .rpc("asignar_orden_con_garantia_v2", {
             p_orden_id: ordenId,
             p_tecnico_id: tecnicoId,
             p_historial: historial,
