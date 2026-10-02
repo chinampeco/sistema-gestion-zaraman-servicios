@@ -73,7 +73,7 @@ export function PendientesAsignacion() {
     equipos,
     tecnicos,
     usuarioActual,
-    actualizarOrden,
+    asignarOrdenConGarantia,
   } = useStore()
   const supabase = React.useMemo(() => createClient(), [])
 
@@ -154,45 +154,32 @@ export function PendientesAsignacion() {
     }
 
     try {
-      await actualizarOrden(asignando.id, {
+      const actualizada = await asignarOrdenConGarantia(
+        asignando.id,
         tecnicoId,
-        estado: "Asignada",
-        historial: [...asignando.historial, evento],
-      })
-
-      const fechaInicio = null
-      const fechaFin = null
-
-      const { error: garantiaError } = await supabase.from("orden_garantias").upsert(
+        [...asignando.historial, evento],
         {
-          orden_id: asignando.id,
-          orden_origen_id: garantia.ordenOrigenId,
-          tiene_garantia: garantia.tieneGarantia,
-          duracion_valor: garantia.tieneGarantia ? garantia.duracionValor : null,
-          duracion_unidad: garantia.tieneGarantia ? garantia.duracionUnidad : null,
-          fecha_inicio: fechaInicio,
-          fecha_fin: fechaFin,
-          cobertura: garantia.tieneGarantia ? garantia.cobertura : null,
-          condiciones: garantia.tieneGarantia ? garantia.condiciones : null,
+          ordenOrigenId: garantia.ordenOrigenId,
+          tieneGarantia: garantia.tieneGarantia,
+          duracionValor: garantia.duracionValor,
+          duracionUnidad: garantia.duracionUnidad,
+          cobertura: garantia.cobertura,
+          condiciones: garantia.condiciones,
           resultado: garantia.esAtencionGarantia ? "Aprobada" : "Pendiente",
         },
-        { onConflict: "orden_id" },
       )
 
-      if (garantiaError) {
-        toast.error("La orden fue asignada, pero no se pudo guardar la configuración de garantía.")
-        return
-      }
+      if (!actualizada) return
 
       const tecnico = tecnicos.find((t) => t.id === tecnicoId)
       toast.success(
-        `Orden ${asignando.folio} asignada a ${tecnico?.nombre ?? "el técnico"}.`,
+        `Orden ${asignando.folio} asignada a ${tecnico?.nombre ?? "el técnico"} con garantía guardada.`,
       )
       setAsignando(null)
       setTecnicoId("")
       setGarantia(GARANTIA_DEFAULT)
     } catch {
-      toast.error("No se pudo asignar el técnico. Intenta nuevamente.")
+      toast.error("No se pudo asignar el técnico ni guardar la garantía. Intenta nuevamente.")
     } finally {
       setGuardando(false)
     }
