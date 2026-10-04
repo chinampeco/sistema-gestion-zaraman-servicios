@@ -1131,6 +1131,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           toast.error(payload?.error ?? "No se pudo enviar el mensaje de WhatsApp.")
           return null
         }
+        if (payload.error) {
+          toast.error(`El mensaje quedó registrado, pero WhatsApp lo rechazó: ${payload.error}`)
+        }
         const nuevo = mapMensajeWhatsApp(payload.mensaje)
         setMensajesWhatsApp((prev) => [...prev, nuevo])
         return nuevo

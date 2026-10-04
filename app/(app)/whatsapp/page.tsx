@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
 import type { ConversacionWhatsApp, MensajeWhatsApp } from "@/lib/types"
 import { formatFechaHora } from "@/lib/format"
+import { mismoTelefono } from "@/lib/whatsapp"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -95,9 +96,9 @@ export default function WhatsAppPage() {
         const l = leads.find((l) => l.id === m.leadId)
         if (l) return l.empresa || l.nombre
       }
-      const porTelLead = leads.find((l) => l.telefono === m.telefono)
+      const porTelLead = leads.find((l) => mismoTelefono(l.telefono, m.telefono))
       if (porTelLead) return porTelLead.empresa || porTelLead.nombre
-      const porTelCliente = clientes.find((c) => c.telefono === m.telefono)
+      const porTelCliente = clientes.find((c) => mismoTelefono(c.telefono, m.telefono))
       if (porTelCliente) return porTelCliente.nombre
       return m.telefono
     },
@@ -182,7 +183,7 @@ export default function WhatsAppPage() {
         }
       />
 
-      {estado && !estado.configurado && (
+      {estado?.configurado === false && (
         <Card className="flex items-start gap-3 border-amber-500/40 bg-amber-500/5 p-4">
           <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600" />
           <div className="flex flex-col gap-1 text-sm">
