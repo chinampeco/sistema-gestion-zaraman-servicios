@@ -58,3 +58,20 @@ export async function autorizarWhatsApp(): Promise<Autorizado | Rechazado> {
 
   return { ok: true, supabase, userId: user.id }
 }
+
+/** Verifica que el lead y el cliente indicados existan. Devuelve un 400 si alguno no existe. */
+export async function validarContexto(
+  supabase: Autorizado["supabase"],
+  leadId: string | null,
+  clienteId: string | null,
+): Promise<Response | null> {
+  if (leadId) {
+    const { data } = await supabase.from("leads").select("id").eq("id", leadId).maybeSingle()
+    if (!data) return Response.json({ error: "El lead indicado no existe." }, { status: 400 })
+  }
+  if (clienteId) {
+    const { data } = await supabase.from("clientes").select("id").eq("id", clienteId).maybeSingle()
+    if (!data) return Response.json({ error: "El cliente indicado no existe." }, { status: 400 })
+  }
+  return null
+}

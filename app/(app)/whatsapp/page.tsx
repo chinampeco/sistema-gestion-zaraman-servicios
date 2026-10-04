@@ -26,6 +26,7 @@ import { useStore } from "@/lib/store"
 import type { ConversacionWhatsApp, MensajeWhatsApp } from "@/lib/types"
 import { formatFechaHora } from "@/lib/format"
 import { mismoTelefono } from "@/lib/whatsapp"
+import { puedeUsarWhatsApp } from "@/lib/permisos"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -72,7 +73,9 @@ export default function WhatsAppPage() {
     enviarMensajeWhatsApp,
     agregarNotaWhatsApp,
     marcarConversacionLeida,
+    usuarioActual,
   } = useStore()
+  const puedeEscribir = usuarioActual.activo && puedeUsarWhatsApp(usuarioActual.rol)
 
   const { data: estado } = useSWR<{ configurado: boolean; webhookConfigurado: boolean }>(
     "/api/whatsapp/estado",
@@ -144,7 +147,7 @@ export default function WhatsAppPage() {
   }, [activa?.mensajes.length, seleccionado])
 
   async function handleEnviar() {
-    if (!activa || !texto.trim()) return
+    if (!puedeEscribir || !activa || !texto.trim()) return
     setEnviando(true)
     const contexto = { leadId: activa.leadId, clienteId: activa.clienteId }
     if (modoNota) {
@@ -300,6 +303,12 @@ export default function WhatsAppPage() {
                 ))}
               </div>
 
+              {!puedeEscribir ? (
+                <div className="border-t p-3 text-sm text-muted-foreground">
+                  Solo lectura: enviar mensajes y escribir notas internas está reservado a
+                  Administrador, Coordinador y Supervisor.
+                </div>
+              ) : (
               <div className="border-t p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <Button
@@ -345,6 +354,7 @@ export default function WhatsAppPage() {
                   </Button>
                 </div>
               </div>
+              )}
             </>
           )}
         </Card>

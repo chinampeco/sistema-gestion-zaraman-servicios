@@ -29,7 +29,6 @@ import {
   mapTecnico,
   mapTicket,
   mapUsuario,
-  mensajeWhatsAppToDb,
   ordenToDb,
   pagoToDb,
   tecnicoToDb,
@@ -1143,29 +1142,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const texto = nota.trim()
         if (!texto) return null
         // Nota interna: no se envía a WhatsApp, solo queda en la conversación.
-        const { data: row, error } = await supabase
-          .from("whatsapp_mensajes")
-          .insert(
-            mensajeWhatsAppToDb({
-              telefono,
-              direccion: "Saliente",
-              tipo: "Nota",
-              mensaje: texto,
-              estado: "Enviado",
-              notaInterna: true,
-              leido: true,
-              leadId: contexto?.leadId ?? null,
-              clienteId: contexto?.clienteId ?? null,
-              enviadoPor: usuarioActual.id || null,
-            }),
-          )
-          .select("*")
-          .single()
-        if (error || !row) {
-          toast.error("No se pudo guardar la nota.")
+        // Pasa por el servidor para aplicar la misma restricción de rol que el envío.
+        const res = await fetch("/api/whatsapp/nota", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            telefono,
+            nota: texto,
+            leadId: contexto?.leadId ?? null,
+            clienteId: contexto?.clienteId ?? null,
+          }),
+        })
+        const payload = await res.json().catch(() => null)
+        if (!res.ok || !payload?.mensaje) {
+          toast.error(payload?.error ?? "No se pudo guardar la nota.")
           return null
         }
-        const nuevo = mapMensajeWhatsApp(row)
+        const nuevo = mapMensajeWhatsApp(payload.mensaje)
         setMensajesWhatsApp((prev) => [...prev, nuevo])
         return nuevo
       },

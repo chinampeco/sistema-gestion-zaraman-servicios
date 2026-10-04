@@ -133,8 +133,8 @@ async function procesarMensaje(db: SupabaseClient, msg: any, contactos: any[]) {
       .insert({
         nombre: nombrePerfil?.trim() || `WhatsApp +${telefono}`,
         telefono,
+        // Mismos valores que escribe leadToDb (sin conversión a minúscula).
         origen: "WhatsApp",
-        medio: "WhatsApp",
         estado: "Nuevo",
         prioridad: "Normal",
         descripcion_necesidad: tipo === "text" ? texto.slice(0, 500) : null,

@@ -1,5 +1,5 @@
 import { normalizarTelefonoEnvio } from "@/lib/whatsapp"
-import { autorizarWhatsApp, configWhatsApp } from "@/lib/whatsapp-server"
+import { autorizarWhatsApp, configWhatsApp, validarContexto } from "@/lib/whatsapp-server"
 
 // Envío de mensajes salientes de WhatsApp desde la bandeja interna.
 // Solo Administrador, Coordinador y Supervisor activos. El mensaje se guarda
@@ -43,14 +43,8 @@ export async function POST(request: Request) {
     )
   }
 
-  if (leadId) {
-    const { data } = await supabase.from("leads").select("id").eq("id", leadId).maybeSingle()
-    if (!data) return Response.json({ error: "El lead indicado no existe." }, { status: 400 })
-  }
-  if (clienteId) {
-    const { data } = await supabase.from("clientes").select("id").eq("id", clienteId).maybeSingle()
-    if (!data) return Response.json({ error: "El cliente indicado no existe." }, { status: 400 })
-  }
+  const errorContexto = await validarContexto(supabase, leadId, clienteId)
+  if (errorContexto) return errorContexto
 
   // 1) Guardar antes de enviar: nunca sale un mensaje que no quede registrado.
   const { data: guardado, error: errorGuardar } = await supabase

@@ -173,6 +173,12 @@ export function puedeReasignarOrdenes(rol: RolUsuario): boolean {
   return rol === "Administrador" || rol === "Coordinador" || rol === "Supervisor"
 }
 
+// WhatsApp (mensajes y notas internas): solo Administrador, Coordinador y
+// Supervisor. Las rutas /api/whatsapp aplican la misma regla en el servidor.
+export function puedeUsarWhatsApp(rol: RolUsuario): boolean {
+  return rol === "Administrador" || rol === "Coordinador" || rol === "Supervisor"
+}
+
 // Consulta y Cliente no pueden crear/editar/eliminar (solo lectura).
 export function puedeEditar(rol: RolUsuario): boolean {
   return rol !== "Consulta" && rol !== "Cliente"
