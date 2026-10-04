@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useStore } from "@/lib/store"
-import { formatFecha } from "@/lib/format"
+import { formatFecha, nombreTecnico } from "@/lib/format"
 import { ESTADOS_ORDEN } from "@/lib/types"
 
 const MESES = [
@@ -58,8 +58,7 @@ export default function ReportesPage() {
     const e = equipos.find((eq) => eq.id === id)
     return e ? `${e.tipo} · ${e.marca} ${e.modelo}` : "—"
   }
-  const nombreTecnico = (id: string | null) =>
-    tecnicos.find((t) => t.id === id)?.nombre ?? "Sin asignar"
+  const tecnicoDe = (id: string | null) => nombreTecnico(tecnicos, id)
 
   // Filtros por sección
   const [clienteSel, setClienteSel] = React.useState<string>(
@@ -162,7 +161,7 @@ export default function ReportesPage() {
               <OrdenesTable
                 ordenes={ordenes}
                 nombreCliente={nombreCliente}
-                nombreTecnico={nombreTecnico}
+                nombreTecnico={tecnicoDe}
               />
             </CardContent>
           </Card>
@@ -255,7 +254,7 @@ export default function ReportesPage() {
                               {etiquetaEquipo(o.equipoId)}
                             </TableCell>
                             <TableCell className="hidden lg:table-cell">
-                              {nombreTecnico(o.tecnicoId)}
+                              {tecnicoDe(o.tecnicoId)}
                             </TableCell>
                             <TableCell className="hidden sm:table-cell">
                               {formatFecha(o.fechaCierre)}
@@ -296,7 +295,7 @@ export default function ReportesPage() {
               <OrdenesTable
                 ordenes={ordenesCliente}
                 nombreCliente={nombreCliente}
-                nombreTecnico={nombreTecnico}
+                nombreTecnico={tecnicoDe}
               />
             </CardContent>
           </Card>
@@ -324,7 +323,7 @@ export default function ReportesPage() {
               <OrdenesTable
                 ordenes={ordenesEquipo}
                 nombreCliente={nombreCliente}
-                nombreTecnico={nombreTecnico}
+                nombreTecnico={tecnicoDe}
               />
             </CardContent>
           </Card>
@@ -352,7 +351,7 @@ export default function ReportesPage() {
               <OrdenesTable
                 ordenes={ordenesTecnico}
                 nombreCliente={nombreCliente}
-                nombreTecnico={nombreTecnico}
+                nombreTecnico={tecnicoDe}
               />
             </CardContent>
           </Card>
@@ -381,7 +380,7 @@ export default function ReportesPage() {
               <OrdenesTable
                 ordenes={ordenesPeriodo}
                 nombreCliente={nombreCliente}
-                nombreTecnico={nombreTecnico}
+                nombreTecnico={tecnicoDe}
               />
             </CardContent>
           </Card>

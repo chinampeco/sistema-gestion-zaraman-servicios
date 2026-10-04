@@ -42,7 +42,7 @@ export function OrdenMateriales({ orden }: { orden: OrdenServicio }) {
   const [guardando, setGuardando] = React.useState(false)
   const bloqueada = Boolean(orden.firmaCliente)
   const esTecnicoAsignado =
-    usuarioActual.rol === "Técnico" &&
+    usuarioActual.rol === "tecnico" &&
     usuarioActual.tecnicoId != null &&
     usuarioActual.tecnicoId === orden.tecnicoId
   const puedeEditar = !bloqueada && (esTecnicoAsignado || puedeReasignarOrdenes(usuarioActual.rol))

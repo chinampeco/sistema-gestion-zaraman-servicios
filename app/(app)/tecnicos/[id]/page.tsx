@@ -5,9 +5,6 @@ import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft,
-  Mail,
-  Phone,
-  MapPin,
   Wrench,
   Clock,
   Users,
@@ -85,7 +82,7 @@ export default function TecnicoDetallePage() {
             <EmptyDescription>
               {cargando
                 ? "Un momento."
-                : "El técnico que buscas no existe o fue eliminado."}
+                : "El técnico que buscas no existe o su cuenta está inactiva."}
             </EmptyDescription>
           </EmptyHeader>
           {!cargando && (
@@ -110,7 +107,7 @@ export default function TecnicoDetallePage() {
 
       <PageHeader
         title={tecnico.nombre}
-        description={`${tecnico.rol}${tecnico.especialidad ? ` · ${tecnico.especialidad}` : ""}`}
+        description="Técnico"
         actions={
           <Badge variant={tecnico.activo ? "success" : "secondary"}>
             {tecnico.activo ? "Activo" : "Inactivo"}
@@ -119,27 +116,6 @@ export default function TecnicoDetallePage() {
       />
 
       <div className="flex flex-col gap-6">
-        <Card>
-          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="flex items-center gap-2 text-sm">
-              <Mail className="size-4 text-muted-foreground" />
-              <span>{tecnico.email || "—"}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Phone className="size-4 text-muted-foreground" />
-              <span>{tecnico.telefono || "—"}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <MapPin className="size-4 text-muted-foreground" />
-              <span>{tecnico.zona || "Sin zona asignada"}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Wrench className="size-4 text-muted-foreground" />
-              <span>{tecnico.especialidad || "—"}</span>
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
             label="Servicios pendientes"

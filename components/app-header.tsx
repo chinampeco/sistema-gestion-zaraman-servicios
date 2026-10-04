@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useStore } from "@/lib/store"
+import { ETIQUETA_ROL } from "@/lib/types"
 import { contarNotificaciones } from "@/lib/notificaciones"
 import { createClient } from "@/lib/supabase/client"
 
@@ -87,7 +88,7 @@ export function AppHeader() {
                 <div className="flex flex-col">
                   <span className="font-medium">{usuarioActual.nombre}</span>
                   <span className="text-xs font-normal text-muted-foreground">
-                    {usuarioActual.rol}
+                    {ETIQUETA_ROL[usuarioActual.rol]}
                   </span>
                 </div>
               </DropdownMenuLabel>

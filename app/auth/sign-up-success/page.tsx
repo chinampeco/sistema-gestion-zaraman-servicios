@@ -21,16 +21,17 @@ export default function SignUpSuccessPage() {
           </div>
           <CardTitle>Revisa tu correo</CardTitle>
           <CardDescription>
-            Te enviamos un enlace de confirmación. Confírmalo para activar tu
-            cuenta y poder iniciar sesión.
+            Te enviamos un enlace de confirmación. Después de confirmarlo, un
+            administrador debe activar tu cuenta y asignarte un rol para que
+            puedas entrar al panel.
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center text-sm text-muted-foreground">
           Si no lo ves, revisa la carpeta de correo no deseado.
         </CardContent>
         <CardFooter>
-          <Button asChild className="w-full" nativeButton={false}>
-            <Link href="/auth/login">Volver a iniciar sesión</Link>
+          <Button className="w-full" render={<Link href="/auth/login" />} nativeButton={false}>
+            Volver a iniciar sesión
           </Button>
         </CardFooter>
       </Card>

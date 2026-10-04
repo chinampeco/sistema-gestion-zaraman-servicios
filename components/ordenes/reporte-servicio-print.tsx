@@ -70,8 +70,10 @@ export function ReporteServicioPrint({ orden, cliente, equipo, tecnico }: Report
             <Dato label="Número de serie" value={equipo?.numeroSerie} />
             <Dato label="Capacidad" value={equipo?.capacidad} />
             <Dato label="Ubicación" value={equipo?.ubicacion} />
-            <Dato label="Técnico responsable" value={tecnico?.nombre ?? "Sin asignar"} />
-            <Dato label="Zona" value={tecnico?.zona} />
+            <Dato
+              label="Técnico responsable"
+              value={tecnico?.nombre ?? (orden.tecnicoId ? "Técnico asignado" : "Sin asignar")}
+            />
           </div>
         </section>
 

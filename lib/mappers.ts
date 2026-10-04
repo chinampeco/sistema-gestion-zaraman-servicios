@@ -30,7 +30,6 @@ import type {
   Prioridad,
   PrioridadLead,
   PrioridadTicket,
-  RolTecnico,
   RolUsuario,
   Tecnico,
   Ticket,
@@ -58,10 +57,10 @@ function fecha(value: unknown): string | null {
 export function mapCliente(row: Record<string, any>): Cliente {
   return {
     id: row.id,
-    nombre: txt(row.nombre),
+    nombre: txt(row.nombre_empresa),
     rfc: txt(row.rfc),
     contacto: txt(row.contacto),
-    email: txt(row.email),
+    email: txt(row.correo),
     telefono: txt(row.telefono),
     direccion: txt(row.direccion),
     ciudad: txt(row.ciudad),
@@ -74,7 +73,7 @@ export function mapEquipo(row: Record<string, any>): Equipo {
   return {
     id: row.id,
     clienteId: txt(row.cliente_id),
-    tipo: txt(row.tipo),
+    tipo: txt(row.tipo_equipo),
     marca: txt(row.marca),
     modelo: txt(row.modelo),
     numeroSerie: txt(row.numero_serie),
@@ -270,18 +269,14 @@ export function mapPago(row: Record<string, any>): Pago {
   }
 }
 
+// Fila de la RPC listar_tecnicos_activos: solo id y nombre de técnicos activos.
 export function mapTecnico(row: Record<string, any>): Tecnico {
   return {
     id: row.id,
     nombre: txt(row.nombre),
-  rol: (row.rol ?? "Técnico") as RolTecnico,
-  especialidad: txt(row.especialidad),
-  zona: txt(row.zona),
-  email: txt(row.email),
-  telefono: txt(row.telefono),
-  activo: row.activo ?? true,
+    activo: true,
   }
-  }
+}
 
 export function mapCampana(row: Record<string, any>): MarketingCampana {
   return {
@@ -342,15 +337,20 @@ export function mapLeadActividad(row: Record<string, any>): LeadActividad {
   }
 }
 
-export function mapUsuario(row: Record<string, any>): Usuario {
+// Fila de profiles (id, full_name, role, active, cliente_id). profiles no
+// guarda el correo: llega aparte (auth.users) cuando se conoce.
+// El técnico se identifica por su propio perfil: ordenes_servicio.tecnico_id
+// guarda el id del perfil (las políticas RLS comparan con auth.uid()).
+export function mapUsuario(row: Record<string, any>, email = ""): Usuario {
+  const rol = (row.role ?? "consulta") as RolUsuario
   return {
     id: row.id,
-    nombre: txt(row.nombre_completo) || txt(row.email),
-    email: txt(row.email),
-    rol: (row.rol ?? "Coordinador") as RolUsuario,
-    activo: row.activo ?? true,
+    nombre: txt(row.full_name) || email,
+    email,
+    rol,
+    activo: row.active ?? false,
     clienteId: row.cliente_id ?? null,
-    tecnicoId: row.tecnico_id ?? null,
+    tecnicoId: rol === "tecnico" ? row.id : null,
   }
 }
 
@@ -358,10 +358,10 @@ export function mapUsuario(row: Record<string, any>): Usuario {
 
 export function clienteToDb(data: Partial<Cliente>): Record<string, any> {
   const out: Record<string, any> = {}
-  if (data.nombre !== undefined) out.nombre = data.nombre
+  if (data.nombre !== undefined) out.nombre_empresa = data.nombre
   if (data.rfc !== undefined) out.rfc = data.rfc
   if (data.contacto !== undefined) out.contacto = data.contacto
-  if (data.email !== undefined) out.email = data.email
+  if (data.email !== undefined) out.correo = data.email
   if (data.telefono !== undefined) out.telefono = data.telefono
   if (data.direccion !== undefined) out.direccion = data.direccion
   if (data.ciudad !== undefined) out.ciudad = data.ciudad
@@ -372,7 +372,7 @@ export function clienteToDb(data: Partial<Cliente>): Record<string, any> {
 export function equipoToDb(data: Partial<Equipo>): Record<string, any> {
   const out: Record<string, any> = {}
   if (data.clienteId !== undefined) out.cliente_id = data.clienteId || null
-  if (data.tipo !== undefined) out.tipo = data.tipo
+  if (data.tipo !== undefined) out.tipo_equipo = data.tipo
   if (data.marca !== undefined) out.marca = data.marca
   if (data.modelo !== undefined) out.modelo = data.modelo
   if (data.numeroSerie !== undefined) out.numero_serie = data.numeroSerie
@@ -484,18 +484,6 @@ export function pagoToDb(data: Partial<Pago>): Record<string, any> {
   if (data.creadoPor !== undefined) out.creado_por = data.creadoPor || null
   return out
 }
-
-export function tecnicoToDb(data: Partial<Tecnico>): Record<string, any> {
-  const out: Record<string, any> = {}
-  if (data.nombre !== undefined) out.nombre = data.nombre
-  if (data.rol !== undefined) out.rol = data.rol
-  if (data.especialidad !== undefined) out.especialidad = data.especialidad
-  if (data.zona !== undefined) out.zona = data.zona
-  if (data.email !== undefined) out.email = data.email
-  if (data.telefono !== undefined) out.telefono = data.telefono
-  if (data.activo !== undefined) out.activo = data.activo
-  return out
-  }
 
 export function campanaToDb(data: Partial<MarketingCampana>): Record<string, any> {
   const out: Record<string, any> = {}

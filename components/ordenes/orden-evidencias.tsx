@@ -34,7 +34,7 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
   const inputRef = React.useRef<HTMLInputElement>(null)
   const bloqueada = Boolean(orden.firmaCliente)
   const esTecnicoAsignado =
-    usuarioActual.rol === "Técnico" &&
+    usuarioActual.rol === "tecnico" &&
     usuarioActual.tecnicoId != null &&
     usuarioActual.tecnicoId === orden.tecnicoId
   const puedeEditar = !bloqueada && (esTecnicoAsignado || puedeReasignarOrdenes(usuarioActual.rol))

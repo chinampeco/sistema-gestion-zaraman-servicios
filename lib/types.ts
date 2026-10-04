@@ -69,19 +69,13 @@ export type MetodoPago =
   | "Tarjeta de débito"
   | "Otro"
 
-export type RolTecnico =
-  | "Técnico"
-  | "Técnico Senior"
-  | "Supervisor"
-  | "Jefe de Servicio"
-
+// Valores tal como se guardan en profiles.role (CHECK de la base).
 export type RolUsuario =
-  | "Administrador"
-  | "Coordinador"
-  | "Supervisor"
-  | "Técnico"
-  | "Consulta"
-  | "Cliente"
+  | "administrador"
+  | "supervisor"
+  | "tecnico"
+  | "consulta"
+  | "cliente"
 
 export interface Cliente {
   id: string
@@ -270,14 +264,11 @@ export interface Pago {
   createdAt: string
 }
 
+// Técnico = perfil con rol 'tecnico'. Se lista con la RPC
+// listar_tecnicos_activos, que solo expone id y nombre.
 export interface Tecnico {
   id: string
   nombre: string
-  rol: RolTecnico
-  especialidad: string
-  zona: string
-  email: string
-  telefono: string
   activo: boolean
 }
 
@@ -371,13 +362,6 @@ export const ESTADOS_EQUIPO: EstadoEquipo[] = [
   "En espera de refacción",
 ]
 
-export const ROLES_TECNICO: RolTecnico[] = [
-  "Técnico",
-  "Técnico Senior",
-  "Supervisor",
-  "Jefe de Servicio",
-]
-
 export const UNIDADES_MATERIAL: string[] = [
   "Pieza",
   "Metro",
@@ -390,15 +374,22 @@ export const UNIDADES_MATERIAL: string[] = [
 
 export const FASES_EVIDENCIA: FaseEvidencia[] = ["Antes", "Durante", "Después"]
 
-// Roles internos asignables a cuentas con acceso al panel (excluye "Cliente",
-// que pertenece al portal y se gestiona desde la ficha del cliente).
+// Roles que el administrador puede asignar a una cuenta.
 export const ROLES_USUARIO: RolUsuario[] = [
-  "Administrador",
-  "Coordinador",
-  "Supervisor",
-  "Técnico",
-  "Consulta",
+  "administrador",
+  "supervisor",
+  "tecnico",
+  "consulta",
+  "cliente",
 ]
+
+export const ETIQUETA_ROL: Record<RolUsuario, string> = {
+  administrador: "Administrador",
+  supervisor: "Supervisor",
+  tecnico: "Técnico",
+  consulta: "Consulta",
+  cliente: "Cliente",
+}
 
 // ---------------------------------------------------------------------------
 // FASE 1 — CRM de leads y marketing

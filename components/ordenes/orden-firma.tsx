@@ -30,7 +30,7 @@ export function OrdenFirma({ orden }: { orden: OrdenServicio }) {
 
   const firmaTecnico = obtenerFirmaTecnico(orden)
   const esTecnicoAsignado =
-    usuarioActual.rol === "Técnico" &&
+    usuarioActual.rol === "tecnico" &&
     usuarioActual.tecnicoId != null &&
     usuarioActual.tecnicoId === orden.tecnicoId
 

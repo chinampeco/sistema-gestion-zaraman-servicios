@@ -35,7 +35,7 @@ export function OrdenParteTecnico({ orden }: { orden: OrdenServicio }) {
 
   const bloqueada = Boolean(orden.firmaCliente)
   const esTecnicoAsignado =
-    usuarioActual.rol === "Técnico" &&
+    usuarioActual.rol === "tecnico" &&
     usuarioActual.tecnicoId != null &&
     usuarioActual.tecnicoId === orden.tecnicoId
   const puedeEditarComoSupervisor = puedeReasignarOrdenes(usuarioActual.rol)

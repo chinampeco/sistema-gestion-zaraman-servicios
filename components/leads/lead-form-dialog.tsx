@@ -78,7 +78,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
   // Solo staff interno (no técnicos ni clientes) puede recibir leads asignados.
   const asignables = React.useMemo(() => {
     const disponibles = usuarios.filter(
-      (u) => u.activo && u.rol !== "Técnico" && u.rol !== "Cliente",
+      (u) => u.activo && u.rol !== "tecnico" && u.rol !== "cliente",
     )
     // Siempre incluimos al responsable actualmente guardado, aunque haya sido
     // desactivado o cambiado de rol; así el Select puede resolver el nombre

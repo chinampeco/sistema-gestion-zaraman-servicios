@@ -294,3 +294,14 @@ export function iniciales(nombre: string): string {
     .map((p) => p.charAt(0).toUpperCase())
     .join("")
 }
+
+// Nombre del técnico de una orden. Solo administrador y supervisor reciben la
+// lista de técnicos (RPC listar_tecnicos_activos); para los demás roles una
+// orden asignada muestra "Técnico asignado" sin nombre.
+export function nombreTecnico(
+  tecnicos: { id: string; nombre: string }[],
+  id: string | null | undefined,
+): string {
+  if (!id) return "Sin asignar"
+  return tecnicos.find((t) => t.id === id)?.nombre ?? "Técnico asignado"
+}

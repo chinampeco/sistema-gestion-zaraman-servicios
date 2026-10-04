@@ -40,7 +40,9 @@ export default function SignUpPage() {
         emailRedirectTo:
           process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
           `${window.location.origin}/auth/callback`,
-        data: { nombre_completo: nombre, rol: "Coordinador" },
+        // Solo el nombre. El rol y la empresa los asigna el administrador;
+        // la base crea el perfil inactivo con rol 'consulta'.
+        data: { full_name: nombre },
       },
     })
     if (error) {

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/sidebar"
 import { useStore } from "@/lib/store"
 import { type ClaveModulo, puedeVerModulo } from "@/lib/permisos"
+import { ETIQUETA_ROL } from "@/lib/types"
 
 type NavItem = {
   title: string
@@ -180,7 +181,7 @@ export function AppSidebar() {
               {usuarioActual.nombre}
             </span>
             <span className="truncate text-xs text-sidebar-foreground/70">
-              {usuarioActual.rol}
+              {ETIQUETA_ROL[usuarioActual.rol]}
             </span>
           </div>
         </div>

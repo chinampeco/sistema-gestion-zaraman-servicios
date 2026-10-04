@@ -285,7 +285,7 @@ export function PendientesAsignacion() {
                     {(value) => {
                       const tecnico = tecnicos.find((t) => t.id === value)
                       return tecnico
-                        ? `${tecnico.nombre} · ${tecnico.especialidad || tecnico.rol}`
+                        ? tecnico.nombre
                         : "Selecciona un técnico"
                     }}
                   </SelectValue>
@@ -298,7 +298,7 @@ export function PendientesAsignacion() {
                   ) : (
                     tecnicosActivos.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
-                        {t.nombre} · {t.especialidad || t.rol}
+                        {t.nombre}
                       </SelectItem>
                     ))
                   )}

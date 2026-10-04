@@ -39,7 +39,7 @@ import { Progress } from "@/components/ui/progress"
 import { EstadoOrdenBadge, PrioridadBadge } from "@/components/status-badges"
 import { OrdenesPorMesChart } from "@/components/charts/ordenes-por-mes-chart"
 import { useStore } from "@/lib/store"
-import { formatFecha, formatMoneda } from "@/lib/format"
+import { formatFecha, formatMoneda, nombreTecnico } from "@/lib/format"
 import { ESTADOS_ORDEN } from "@/lib/types"
 
 export default function DashboardPage() {
@@ -55,8 +55,7 @@ export default function DashboardPage() {
 
   const clienteNombre = (id: string) =>
     clientes.find((c) => c.id === id)?.nombre ?? "—"
-  const tecnicoNombre = (id: string | null) =>
-    tecnicos.find((t) => t.id === id)?.nombre ?? "Sin asignar"
+  const tecnicoNombre = (id: string | null) => nombreTecnico(tecnicos, id)
   const equipoNombre = (id: string) => {
     const e = equipos.find((x) => x.id === id)
     return e ? `${e.tipo} · ${e.marca} ${e.modelo}`.trim() : "—"

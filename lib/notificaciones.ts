@@ -53,7 +53,7 @@ export function obtenerNotificaciones(
   rol?: RolUsuario,
 ): Notificacion[] {
   // Vista de campo: el técnico solo ve avisos de sus órdenes asignadas.
-  if (rol === "Técnico") {
+  if (rol === "tecnico") {
     return notificacionesTecnico(ordenes)
   }
 

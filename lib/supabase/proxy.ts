@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 import type { RolUsuario } from "@/lib/types"
-import { puedeAccederRuta, rutaInicioRol } from "@/lib/permisos"
+import { RUTA_CUENTA_PENDIENTE, puedeAccederRuta, rutaInicioRol } from "@/lib/permisos"
 
 // Las rutas /api gestionan su propia autenticación y responden JSON (incluidos
 // 401/403). No deben pasar por el guard de redirección: si se redirigen,
@@ -48,32 +48,29 @@ export async function updateSession(request: NextRequest) {
   if (user && !isPublic) {
     const { data: perfil } = await supabase
       .from("profiles")
-      .select("rol")
+      .select("role, active")
       .eq("id", user.id)
-      .single()
+      .maybeSingle()
 
-    const rol = perfil?.rol as RolUsuario | undefined
+    const rol = perfil?.role as RolUsuario | undefined
 
-    if (rol) {
-      const enPortal = pathname === "/portal" || pathname.startsWith("/portal/")
+    // Sin perfil, inactivo o cliente (el portal aún no está disponible):
+    // ninguna ruta interna; solo la pantalla de cuenta pendiente.
+    if (!perfil || !rol || perfil.active !== true || rol === "cliente") {
+      const url = request.nextUrl.clone()
+      url.pathname = RUTA_CUENTA_PENDIENTE
+      url.search = ""
+      return NextResponse.redirect(url)
+    }
 
-      if (rol === "Cliente") {
-        // El cliente solo puede estar dentro del portal.
-        if (!enPortal) {
-          const url = request.nextUrl.clone()
-          url.pathname = "/portal"
-          return NextResponse.redirect(url)
-        }
-      } else {
-        // El personal no entra al portal y solo ve los módulos de su rol.
-        if (enPortal || !puedeAccederRuta(rol, pathname)) {
-          const destino = rutaInicioRol(rol)
-          if (pathname !== destino) {
-            const url = request.nextUrl.clone()
-            url.pathname = destino
-            return NextResponse.redirect(url)
-          }
-        }
+    // El personal no entra al portal y solo ve los módulos de su rol.
+    const enPortal = pathname === "/portal" || pathname.startsWith("/portal/")
+    if (enPortal || !puedeAccederRuta(rol, pathname)) {
+      const destino = rutaInicioRol(rol)
+      if (pathname !== destino) {
+        const url = request.nextUrl.clone()
+        url.pathname = destino
+        return NextResponse.redirect(url)
       }
     }
   }

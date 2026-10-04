@@ -47,11 +47,11 @@ export const RUTA_MODULO: Record<ClaveModulo, string> = {
   notificaciones: "/notificaciones",
 }
 
-type RolInterno = Exclude<RolUsuario, "Cliente">
+type RolInterno = Exclude<RolUsuario, "cliente">
 
 // Módulos que puede ver cada rol interno.
 const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
-  Administrador: [
+  administrador: [
     "dashboard",
     "leads",
     "marketing",
@@ -70,26 +70,7 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
     "configuracion",
     "notificaciones",
   ],
-  Coordinador: [
-    "dashboard",
-    "leads",
-    "marketing",
-    "whatsapp",
-    "clientes",
-    "equipos",
-    "inventario",
-    "tickets",
-    "cotizaciones",
-    "ordenes",
-    "agenda",
-    "tecnicos",
-    "facturacion",
-    "cobranza",
-    "reportes",
-    "configuracion",
-    "notificaciones",
-  ],
-  Supervisor: [
+  supervisor: [
     "dashboard",
     "leads",
     "marketing",
@@ -108,9 +89,11 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
   ],
   // El técnico trabaja en campo: solo sus órdenes, su agenda y avisos.
   // No ve el dashboard general (resumen financiero/operativo de la empresa).
-  Técnico: ["ordenes", "agenda", "notificaciones", "configuracion"],
+  tecnico: ["ordenes", "agenda", "notificaciones", "configuracion"],
   // Consulta ve casi todo, pero en modo de solo lectura (ver puedeEditar).
-  Consulta: [
+  // No ve Técnicos: la lista de técnicos solo la pueden consultar
+  // administrador y supervisor (RPC listar_tecnicos_activos).
+  consulta: [
     "dashboard",
     "leads",
     "marketing",
@@ -122,7 +105,6 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
     "cotizaciones",
     "ordenes",
     "agenda",
-    "tecnicos",
     "facturacion",
     "cobranza",
     "reportes",
@@ -132,7 +114,7 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
 }
 
 export function modulosDeRol(rol: RolUsuario): ClaveModulo[] {
-  if (rol === "Cliente") return []
+  if (rol === "cliente") return []
   return MODULOS_POR_ROL[rol] ?? []
 }
 
@@ -142,7 +124,7 @@ export function puedeVerModulo(rol: RolUsuario, modulo: ClaveModulo): boolean {
 
 // ¿El rol tiene acceso a la ruta indicada del panel?
 export function puedeAccederRuta(rol: RolUsuario, pathname: string): boolean {
-  if (rol === "Cliente") return false
+  if (rol === "cliente") return false
   const modulos = modulosDeRol(rol)
   if (pathname === "/") return modulos.includes("dashboard")
   return modulos.some((m) => {
@@ -152,41 +134,46 @@ export function puedeAccederRuta(rol: RolUsuario, pathname: string): boolean {
   })
 }
 
+// Pantalla de espera para cuentas sin acceso al panel: perfiles inactivos o
+// sin perfil, y usuarios cliente mientras el portal no esté disponible.
+export const RUTA_CUENTA_PENDIENTE = "/auth/pendiente"
+
 // Ruta a la que se envía a cada rol tras iniciar sesión o al intentar entrar
 // a una sección no permitida.
 export function rutaInicioRol(rol: RolUsuario): string {
-  if (rol === "Cliente") return "/portal"
+  if (rol === "cliente") return RUTA_CUENTA_PENDIENTE
   const modulos = modulosDeRol(rol)
   if (modulos.includes("dashboard")) return "/"
   const primero = modulos.find((m) => RUTA_MODULO[m] !== "/")
   return primero ? RUTA_MODULO[primero] : "/"
 }
 
-// Solo el Administrador gestiona usuarios internos y accesos.
+// Solo el Administrador gestiona usuarios y accesos.
 export function puedeGestionarUsuarios(rol: RolUsuario): boolean {
-  return rol === "Administrador"
+  return rol === "administrador"
 }
 
-// Reasignar una orden a otro técnico: coordinación y supervisión.
-// El técnico y el rol de solo lectura no pueden reasignar.
+// Asignar o reasignar una orden a un técnico: administración y supervisión.
+// Coincide con los roles que acepta la RPC asignar_orden_con_garantia_v2 y
+// listar_tecnicos_activos.
 export function puedeReasignarOrdenes(rol: RolUsuario): boolean {
-  return rol === "Administrador" || rol === "Coordinador" || rol === "Supervisor"
+  return rol === "administrador" || rol === "supervisor"
 }
 
 // Consulta y Cliente no pueden crear/editar/eliminar (solo lectura).
 export function puedeEditar(rol: RolUsuario): boolean {
-  return rol !== "Consulta" && rol !== "Cliente"
+  return rol !== "consulta" && rol !== "cliente"
 }
 
 export function esSoloLectura(rol: RolUsuario): boolean {
-  return rol === "Consulta"
+  return rol === "consulta"
 }
 
 // Descripción corta de cada rol para mostrar en la gestión de usuarios.
-export const DESCRIPCION_ROL: Record<RolInterno, string> = {
-  Administrador: "Acceso total, incluida la gestión de usuarios y la configuración.",
-  Coordinador: "Operación completa, finanzas y reportes. Sin gestión de usuarios.",
-  Supervisor: "Operación y supervisión de técnicos. Sin finanzas.",
-  Técnico: "Solo sus órdenes de servicio y su agenda.",
-  Consulta: "Acceso de solo lectura a todo el panel.",
+export const DESCRIPCION_ROL: Record<RolUsuario, string> = {
+  administrador: "Acceso total, incluida la gestión de usuarios y la configuración.",
+  supervisor: "Operación y supervisión de técnicos. Sin finanzas.",
+  tecnico: "Solo sus órdenes de servicio y su agenda.",
+  consulta: "Acceso de solo lectura al panel.",
+  cliente: "Acceso de su empresa al portal de clientes (disponible próximamente).",
 }

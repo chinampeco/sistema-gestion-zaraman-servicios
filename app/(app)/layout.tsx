@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { AppHeader } from "@/components/app-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
+import { RUTA_CUENTA_PENDIENTE } from "@/lib/permisos"
 import { StoreProvider } from "@/lib/store"
 import { createClient } from "@/lib/supabase/server"
 
@@ -18,10 +19,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect("/auth/login")
   }
 
-  // Los usuarios con rol "Cliente" pertenecen al portal, no al panel interno.
-  const { data: perfil } = await supabase.from("profiles").select("rol").eq("id", user.id).single()
-  if (perfil?.rol === "Cliente") {
-    redirect("/portal")
+  // Solo personal interno activo entra al panel. Las cuentas sin perfil,
+  // inactivas o de cliente esperan en la pantalla de cuenta pendiente.
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("role, active")
+    .eq("id", user.id)
+    .maybeSingle()
+  if (!perfil || perfil.active !== true || perfil.role === "cliente") {
+    redirect(RUTA_CUENTA_PENDIENTE)
   }
 
   return (

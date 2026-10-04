@@ -27,7 +27,7 @@ export function AccionesRapidasTecnico({ orden }: { orden: OrdenServicio }) {
   const [guardando, setGuardando] = React.useState(false)
 
   const esMiOrden =
-    usuarioActual.rol === "Técnico" &&
+    usuarioActual.rol === "tecnico" &&
     orden.tecnicoId != null &&
     orden.tecnicoId === usuarioActual.tecnicoId
 

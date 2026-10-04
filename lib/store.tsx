@@ -8,6 +8,7 @@ import * as React from "react"
 import { toast } from "sonner"
 
 import { createClient } from "@/lib/supabase/client"
+import { puedeReasignarOrdenes } from "@/lib/permisos"
 import {
   campanaToDb,
   clienteToDb,
@@ -32,7 +33,6 @@ import {
   mensajeWhatsAppToDb,
   ordenToDb,
   pagoToDb,
-  tecnicoToDb,
   ticketToDb,
 } from "@/lib/mappers"
 import type {
@@ -51,12 +51,14 @@ import type {
   Usuario,
 } from "@/lib/types"
 
+// Mientras carga (o si no hay perfil) el usuario no tiene permisos: rol de
+// solo lectura e inactivo.
 const USUARIO_PLACEHOLDER: Usuario = {
   id: "",
   nombre: "Cargando…",
   email: "",
-  rol: "Coordinador",
-  activo: true,
+  rol: "consulta",
+  activo: false,
   clienteId: null,
   tecnicoId: null,
 }
@@ -129,10 +131,6 @@ interface StoreContextValue {
   ) => Promise<Pago | null>
   eliminarPago: (id: string) => Promise<boolean>
 
-  crearTecnico: (data: Omit<Tecnico, "id">) => Promise<Tecnico | null>
-  actualizarTecnico: (id: string, data: Partial<Tecnico>) => Promise<void>
-  eliminarTecnico: (id: string) => Promise<boolean>
-
   crearCampana: (
     data: Omit<MarketingCampana, "id" | "createdAt">,
   ) => Promise<MarketingCampana | null>
@@ -192,7 +190,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         cotizacionesRes,
         facturasRes,
         pagosRes,
-        tecnicosRes,
         campanasRes,
         leadsRes,
         leadActividadesRes,
@@ -200,19 +197,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         perfilesRes,
         userRes,
       ] = await Promise.all([
-        supabase.from("clientes").select("*").order("nombre"),
+        supabase.from("clientes").select("*").order("nombre_empresa"),
         supabase.from("equipos").select("*").order("created_at", { ascending: false }),
         supabase.from("ordenes_servicio").select("*").order("folio", { ascending: false }),
         supabase.from("tickets").select("*").order("folio", { ascending: false }),
         supabase.from("cotizaciones").select("*").order("folio", { ascending: false }),
         supabase.from("facturas").select("*").order("folio", { ascending: false }),
         supabase.from("pagos").select("*").order("folio", { ascending: false }),
-        supabase.from("tecnicos").select("*").order("nombre"),
         supabase.from("marketing_campanas").select("*").order("created_at", { ascending: false }),
         supabase.from("leads").select("*").order("created_at", { ascending: false }),
         supabase.from("lead_actividades").select("*").order("created_at", { ascending: false }),
         supabase.from("whatsapp_mensajes").select("*").order("created_at", { ascending: true }),
-        supabase.from("profiles").select("*").order("nombre_completo"),
+        // RLS: el administrador ve todos los perfiles; los demás, solo el suyo.
+        supabase
+          .from("profiles")
+          .select("id, full_name, role, active, cliente_id")
+          .order("full_name"),
         supabase.auth.getUser(),
       ])
 
@@ -223,29 +223,44 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (cotizacionesRes.data) setCotizaciones(cotizacionesRes.data.map(mapCotizacion))
       if (facturasRes.data) setFacturas(facturasRes.data.map(mapFactura))
       if (pagosRes.data) setPagos(pagosRes.data.map(mapPago))
-      if (tecnicosRes.data) setTecnicos(tecnicosRes.data.map(mapTecnico))
       if (campanasRes.data) setCampanas(campanasRes.data.map(mapCampana))
       if (leadsRes.data) setLeads(leadsRes.data.map(mapLead))
       if (leadActividadesRes.data)
         setLeadActividades(leadActividadesRes.data.map(mapLeadActividad))
       if (mensajesWhatsAppRes.data)
         setMensajesWhatsApp(mensajesWhatsAppRes.data.map(mapMensajeWhatsApp))
+      const authUser = userRes.data.user
+      let actual: Usuario | null = null
       if (perfilesRes.data) {
-        const lista = perfilesRes.data.map(mapUsuario)
+        const lista = perfilesRes.data.map((row) =>
+          mapUsuario(row, row.id === authUser?.id ? authUser?.email ?? "" : ""),
+        )
         setUsuarios(lista)
-        const uid = userRes.data.user?.id
-        const actual = lista.find((u) => u.id === uid)
-        if (actual) setUsuarioActual(actual)
-        else if (userRes.data.user) {
-          setUsuarioActual({
-            id: userRes.data.user.id,
-            nombre: userRes.data.user.email ?? "Usuario",
-            email: userRes.data.user.email ?? "",
-            rol: "Coordinador",
-            activo: true,
-            clienteId: null,
-          })
+        actual = lista.find((u) => u.id === authUser?.id) ?? null
+      }
+      if (!actual && authUser) {
+        // Sin perfil visible: sin permisos (el middleware ya lo envía a la
+        // pantalla de cuenta pendiente).
+        actual = {
+          ...USUARIO_PLACEHOLDER,
+          id: authUser.id,
+          nombre: authUser.email ?? "Usuario",
+          email: authUser.email ?? "",
         }
+      }
+      if (actual) setUsuarioActual(actual)
+
+      // Técnicos: la RPC solo responde a administrador y supervisor. El técnico
+      // solo se conoce a sí mismo; los demás roles no ven la lista.
+      let tecnicosError: { message: string } | null = null
+      if (actual && actual.activo && puedeReasignarOrdenes(actual.rol)) {
+        const tecnicosRes = await supabase.rpc("listar_tecnicos_activos")
+        tecnicosError = tecnicosRes.error
+        setTecnicos((tecnicosRes.data ?? []).map(mapTecnico))
+      } else if (actual && actual.rol === "tecnico") {
+        setTecnicos([{ id: actual.id, nombre: actual.nombre, activo: actual.activo }])
+      } else {
+        setTecnicos([])
       }
 
       const err =
@@ -256,7 +271,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         cotizacionesRes.error ||
         facturasRes.error ||
         pagosRes.error ||
-        tecnicosRes.error ||
+        tecnicosError ||
         perfilesRes.error
       if (err) {
         console.log("[v0] Error al cargar datos:", err.message)
@@ -819,51 +834,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         }
         toast.success("Pago eliminado.")
-        return true
-      },
-
-      crearTecnico: async (data) => {
-        const { data: row, error } = await supabase
-          .from("tecnicos")
-          .insert(tecnicoToDb(data))
-          .select("*")
-          .single()
-        if (error || !row) {
-          toast.error("No se pudo crear el técnico.")
-          return null
-        }
-        const nuevo = mapTecnico(row)
-        setTecnicos((prev) => [nuevo, ...prev].sort((a, b) => a.nombre.localeCompare(b.nombre)))
-        toast.success("Técnico creado.")
-        return nuevo
-      },
-      actualizarTecnico: async (tecnicoId, data) => {
-        const { data: row, error } = await supabase
-          .from("tecnicos")
-          .update(tecnicoToDb(data))
-          .eq("id", tecnicoId)
-          .select("*")
-          .single()
-        if (error || !row) {
-          toast.error("No se pudo actualizar el técnico.")
-          return
-        }
-        const actualizado = mapTecnico(row)
-        setTecnicos((prev) => prev.map((t) => (t.id === tecnicoId ? actualizado : t)))
-        toast.success("Técnico actualizado.")
-      },
-      eliminarTecnico: async (tecnicoId) => {
-        const { error } = await supabase.from("tecnicos").delete().eq("id", tecnicoId)
-        if (error) {
-          toast.error("No se pudo eliminar el técnico.")
-          return false
-        }
-        setTecnicos((prev) => prev.filter((t) => t.id !== tecnicoId))
-        // Las órdenes que referencian al técnico quedan sin asignar (set null).
-        setOrdenes((prev) =>
-          prev.map((o) => (o.tecnicoId === tecnicoId ? { ...o, tecnicoId: null } : o)),
-        )
-        toast.success("Técnico eliminado.")
         return true
       },
 

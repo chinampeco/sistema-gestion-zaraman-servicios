@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Eye, EyeOff, KeyRound, MoreVertical, UserPlus } from "lucide-react"
+import { Eye, EyeOff, KeyRound, MoreVertical, UserCheck, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -19,7 +19,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Field, FieldLabel } from "@/components/ui/field"
@@ -41,31 +40,102 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { iniciales } from "@/lib/format"
+import { formatFecha, iniciales } from "@/lib/format"
 import { DESCRIPCION_ROL, puedeGestionarUsuarios } from "@/lib/permisos"
 import { useStore } from "@/lib/store"
-import { ROLES_USUARIO, type RolUsuario, type Usuario } from "@/lib/types"
+import { ETIQUETA_ROL, ROLES_USUARIO, type RolUsuario } from "@/lib/types"
 
-const ROLES_INTERNOS = ROLES_USUARIO.filter((r) => r !== "Cliente") as RolUsuario[]
+// Cuenta tal como la devuelve GET /api/usuarios.
+interface CuentaUsuario {
+  id: string
+  nombre: string
+  email: string
+  rol: RolUsuario
+  activo: boolean
+  clienteId: string | null
+  createdAt: string
+  correoConfirmado: boolean
+}
 
 export function UsuariosManager() {
-  const { usuarioActual, usuarios, recargar } = useStore()
+  const { usuarioActual, clientes } = useStore()
   const esAdmin = puedeGestionarUsuarios(usuarioActual.rol)
 
+  const [cuentas, setCuentas] = React.useState<CuentaUsuario[]>([])
+  const [cargando, setCargando] = React.useState(true)
   const [crearAbierto, setCrearAbierto] = React.useState(false)
-  const [editar, setEditar] = React.useState<Usuario | null>(null)
+  const [editar, setEditar] = React.useState<{ cuenta: CuentaUsuario; activar: boolean } | null>(
+    null,
+  )
 
-  // Solo el personal interno se administra aquí; los clientes van en su ficha.
-  const internos = usuarios.filter((u) => u.rol !== "Cliente")
+  const cargar = React.useCallback(async () => {
+    const res = await fetch("/api/usuarios", { cache: "no-store" })
+    const data = await res.json().catch(() => null)
+    if (!res.ok) {
+      toast.error(data?.error ?? "No se pudieron cargar los usuarios.")
+    } else {
+      setCuentas((data?.usuarios ?? []) as CuentaUsuario[])
+    }
+    setCargando(false)
+  }, [])
+
+  React.useEffect(() => {
+    if (esAdmin) cargar()
+  }, [esAdmin, cargar])
+
+  if (!esAdmin) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Solo el administrador puede ver y gestionar las cuentas de usuario.
+      </p>
+    )
+  }
+
+  const nombreEmpresa = (id: string | null) =>
+    id ? clientes.find((c) => c.id === id)?.nombre ?? "—" : null
+
+  const pendientes = cuentas.filter((c) => !c.activo)
 
   return (
-    <div className="flex flex-col gap-4">
-      {esAdmin && (
-        <div className="flex justify-end">
-          <Button onClick={() => setCrearAbierto(true)}>
-            <UserPlus className="size-4" />
-            Nuevo usuario
-          </Button>
+    <div className="flex flex-col gap-6">
+      <div className="flex justify-end">
+        <Button onClick={() => setCrearAbierto(true)}>
+          <UserPlus className="size-4" />
+          Nuevo usuario
+        </Button>
+      </div>
+
+      {pendientes.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-lg border border-warning/40 p-4">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Pendientes de activación</span>
+            <Badge variant="warning">{pendientes.length}</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Cuentas registradas o desactivadas. No pueden entrar al panel hasta
+            que les asignes un rol y las actives.
+          </p>
+          <ul className="flex flex-col divide-y divide-border">
+            {pendientes.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate font-medium">{c.nombre || c.email}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {c.email} · registrado el {formatFecha(c.createdAt)}
+                    {!c.correoConfirmado && " · correo sin confirmar"}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setEditar({ cuenta: c, activar: true })}
+                  disabled={c.id === usuarioActual.id}
+                >
+                  <UserCheck className="size-4" />
+                  Asignar rol y activar
+                </Button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -77,59 +147,63 @@ export function UsuariosManager() {
               <TableHead className="hidden sm:table-cell">Correo</TableHead>
               <TableHead>Rol</TableHead>
               <TableHead className="text-center">Estado</TableHead>
-              {esAdmin && <TableHead className="w-10" />}
+              <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {internos.map((u) => (
+            {cuentas.map((u) => (
               <TableRow key={u.id}>
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Avatar className="size-8">
                       <AvatarFallback className="text-xs">
-                        {iniciales(u.nombre)}
+                        {iniciales(u.nombre || u.email)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="font-medium">{u.nombre}</span>
+                    <span className="font-medium">{u.nombre || u.email}</span>
                   </div>
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground sm:table-cell">
                   {u.email}
                 </TableCell>
-                <TableCell>{u.rol}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span>{ETIQUETA_ROL[u.rol] ?? u.rol}</span>
+                    {u.rol === "cliente" && (
+                      <span className="text-xs text-muted-foreground">
+                        {nombreEmpresa(u.clienteId)}
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="text-center">
                   <Badge variant={u.activo ? "success" : "secondary"}>
                     {u.activo ? "Activo" : "Inactivo"}
                   </Badge>
                 </TableCell>
-                {esAdmin && (
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button variant="ghost" size="icon" className="size-8">
-                            <MoreVertical className="size-4" />
-                            <span className="sr-only">Acciones</span>
-                          </Button>
-                        }
-                      />
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setEditar(u)}>
-                          Editar usuario
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                )}
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button variant="ghost" size="icon" className="size-8">
+                          <MoreVertical className="size-4" />
+                          <span className="sr-only">Acciones</span>
+                        </Button>
+                      }
+                    />
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setEditar({ cuenta: u, activar: false })}>
+                        Editar usuario
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
               </TableRow>
             ))}
-            {internos.length === 0 && (
+            {cuentas.length === 0 && (
               <TableRow>
-                <TableCell
-                  colSpan={esAdmin ? 5 : 4}
-                  className="py-8 text-center text-muted-foreground"
-                >
-                  No hay usuarios internos registrados.
+                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  {cargando ? "Cargando usuarios…" : "No hay usuarios registrados."}
                 </TableCell>
               </TableRow>
             )}
@@ -137,20 +211,20 @@ export function UsuariosManager() {
         </Table>
       </div>
 
-      {esAdmin && (
-        <CrearUsuarioDialog
-          abierto={crearAbierto}
-          onOpenChange={setCrearAbierto}
-          onGuardado={recargar}
-        />
-      )}
+      <CrearUsuarioDialog
+        abierto={crearAbierto}
+        onOpenChange={setCrearAbierto}
+        onGuardado={cargar}
+      />
 
-      {esAdmin && editar && (
+      {editar && (
         <EditarUsuarioDialog
-          usuario={editar}
-          esUnoMismo={editar.id === usuarioActual.id}
+          key={editar.cuenta.id}
+          cuenta={editar.cuenta}
+          activar={editar.activar}
+          esUnoMismo={editar.cuenta.id === usuarioActual.id}
           onClose={() => setEditar(null)}
-          onGuardado={recargar}
+          onGuardado={cargar}
         />
       )}
     </div>
@@ -169,23 +243,62 @@ function RolSelect({
   id?: string
 }) {
   return (
-    <Select value={value} onValueChange={(v) => onChange(v as RolUsuario)} disabled={disabled}>
+    <Select
+      value={value}
+      onValueChange={(v) => v && onChange(v as RolUsuario)}
+      disabled={disabled}
+    >
       <SelectTrigger id={id}>
-        <SelectValue />
+        <SelectValue>{(v: string) => ETIQUETA_ROL[v as RolUsuario] ?? v}</SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {ROLES_INTERNOS.map((r) => (
+        {ROLES_USUARIO.map((r) => (
           <SelectItem key={r} value={r}>
             <div className="flex flex-col">
-              <span>{r}</span>
-              <span className="text-xs text-muted-foreground">
-                {DESCRIPCION_ROL[r as keyof typeof DESCRIPCION_ROL]}
-              </span>
+              <span>{ETIQUETA_ROL[r]}</span>
+              <span className="text-xs text-muted-foreground">{DESCRIPCION_ROL[r]}</span>
             </div>
           </SelectItem>
         ))}
       </SelectContent>
     </Select>
+  )
+}
+
+// Empresa a la que se liga un usuario cliente. La asigna solo el administrador.
+function EmpresaSelect({
+  value,
+  onChange,
+  id,
+}: {
+  value: string
+  onChange: (v: string) => void
+  id?: string
+}) {
+  const { clientes } = useStore()
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>Empresa</FieldLabel>
+      <Select value={value} onValueChange={(v) => onChange((v as string) ?? "")}>
+        <SelectTrigger id={id}>
+          <SelectValue placeholder="Selecciona la empresa">
+            {(v: string) => clientes.find((c) => c.id === v)?.nombre ?? "Selecciona la empresa"}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {clientes.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.nombre}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-xs text-muted-foreground">
+        {clientes.length === 0
+          ? "No hay empresas registradas. Crea primero el cliente."
+          : "El usuario solo tendrá acceso a la información de esta empresa."}
+      </p>
+    </Field>
   )
 }
 
@@ -198,23 +311,14 @@ function CrearUsuarioDialog({
   onOpenChange: (v: boolean) => void
   onGuardado: () => Promise<void>
 }) {
-  const { tecnicos, usuarios } = useStore()
   const [nombre, setNombre] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [confirmar, setConfirmar] = React.useState("")
-  const [rol, setRol] = React.useState<RolUsuario>("Coordinador")
-  const [tecnicoId, setTecnicoId] = React.useState("")
+  const [rol, setRol] = React.useState<RolUsuario>("consulta")
+  const [clienteId, setClienteId] = React.useState("")
   const [verPassword, setVerPassword] = React.useState(false)
   const [guardando, setGuardando] = React.useState(false)
-
-  // Fichas de técnico que aún no tienen una cuenta de acceso vinculada.
-  const tecnicosDisponibles = React.useMemo(() => {
-    const vinculados = new Set(
-      usuarios.map((u) => u.tecnicoId).filter((id): id is string => Boolean(id)),
-    )
-    return tecnicos.filter((t) => !vinculados.has(t.id))
-  }, [tecnicos, usuarios])
 
   React.useEffect(() => {
     if (abierto) {
@@ -222,8 +326,8 @@ function CrearUsuarioDialog({
       setEmail("")
       setPassword("")
       setConfirmar("")
-      setRol("Coordinador")
-      setTecnicoId("")
+      setRol("consulta")
+      setClienteId("")
       setVerPassword(false)
     }
   }, [abierto])
@@ -233,8 +337,8 @@ function CrearUsuarioDialog({
       toast.error("Completa el nombre y el correo.")
       return
     }
-    if (rol === "Técnico" && !tecnicoId) {
-      toast.error("Selecciona la ficha de técnico a la que se vincula la cuenta.")
+    if (rol === "cliente" && !clienteId) {
+      toast.error("Selecciona la empresa del usuario cliente.")
       return
     }
     if (password.length < 6) {
@@ -249,7 +353,13 @@ function CrearUsuarioDialog({
     const res = await fetch("/api/usuarios", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre, email, password, rol, tecnicoId: tecnicoId || null }),
+      body: JSON.stringify({
+        nombre,
+        email,
+        password,
+        rol,
+        clienteId: rol === "cliente" ? clienteId : null,
+      }),
     })
     const data = await res.json().catch(() => null)
     setGuardando(false)
@@ -268,8 +378,8 @@ function CrearUsuarioDialog({
         <DialogHeader>
           <DialogTitle>Nuevo usuario</DialogTitle>
           <DialogDescription>
-            Crea una cuenta con acceso al panel. Comparte estas credenciales con
-            la persona; podrá iniciar sesión de inmediato.
+            Crea una cuenta activa con el rol indicado. Comparte estas
+            credenciales con la persona; podrá iniciar sesión de inmediato.
           </DialogDescription>
         </DialogHeader>
 
@@ -297,32 +407,8 @@ function CrearUsuarioDialog({
             <FieldLabel htmlFor="nuevo-rol">Rol</FieldLabel>
             <RolSelect id="nuevo-rol" value={rol} onChange={setRol} />
           </Field>
-          {rol === "Técnico" && (
-            <Field>
-              <FieldLabel htmlFor="nuevo-tecnico">Ficha de técnico vinculada</FieldLabel>
-              <Select value={tecnicoId} onValueChange={setTecnicoId}>
-                <SelectTrigger id="nuevo-tecnico">
-                  <SelectValue placeholder="Selecciona un técnico" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tecnicosDisponibles.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {tecnicosDisponibles.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No hay fichas de técnico libres. Crea una en el módulo Técnicos o
-                  desvincula una cuenta existente.
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  La cuenta solo verá las órdenes asignadas a esta ficha.
-                </p>
-              )}
-            </Field>
+          {rol === "cliente" && (
+            <EmpresaSelect id="nuevo-empresa" value={clienteId} onChange={setClienteId} />
           )}
           <Field>
             <FieldLabel htmlFor="nuevo-password">Contraseña</FieldLabel>
@@ -369,33 +455,24 @@ function CrearUsuarioDialog({
 }
 
 function EditarUsuarioDialog({
-  usuario,
+  cuenta,
+  activar,
   esUnoMismo,
   onClose,
   onGuardado,
 }: {
-  usuario: Usuario
+  cuenta: CuentaUsuario
+  // Abierto desde "Pendientes de activación": propone activar la cuenta.
+  activar: boolean
   esUnoMismo: boolean
   onClose: () => void
   onGuardado: () => Promise<void>
 }) {
-  const { tecnicos, usuarios } = useStore()
-  const [nombre, setNombre] = React.useState(usuario.nombre)
-  const [rol, setRol] = React.useState<RolUsuario>(usuario.rol)
-  const [activo, setActivo] = React.useState(usuario.activo)
-  const [tecnicoId, setTecnicoId] = React.useState(usuario.tecnicoId ?? "")
+  const [nombre, setNombre] = React.useState(cuenta.nombre)
+  const [rol, setRol] = React.useState<RolUsuario>(cuenta.rol)
+  const [clienteId, setClienteId] = React.useState(cuenta.clienteId ?? "")
+  const [activo, setActivo] = React.useState(activar ? true : cuenta.activo)
   const [guardando, setGuardando] = React.useState(false)
-
-  // Fichas libres + la que ya tiene esta cuenta (para poder conservarla).
-  const tecnicosDisponibles = React.useMemo(() => {
-    const vinculados = new Set(
-      usuarios
-        .filter((u) => u.id !== usuario.id)
-        .map((u) => u.tecnicoId)
-        .filter((id): id is string => Boolean(id)),
-    )
-    return tecnicos.filter((t) => !vinculados.has(t.id))
-  }, [tecnicos, usuarios, usuario.id])
 
   const [cambiarPass, setCambiarPass] = React.useState(false)
   const [password, setPassword] = React.useState("")
@@ -403,8 +480,8 @@ function EditarUsuarioDialog({
   const [verPassword, setVerPassword] = React.useState(false)
 
   async function guardar() {
-    if (rol === "Técnico" && !tecnicoId) {
-      toast.error("Selecciona la ficha de técnico a la que se vincula la cuenta.")
+    if (rol === "cliente" && !clienteId) {
+      toast.error("Selecciona la empresa del usuario cliente.")
       return
     }
     if (cambiarPass) {
@@ -418,12 +495,12 @@ function EditarUsuarioDialog({
       }
     }
     setGuardando(true)
-    const body: Record<string, unknown> = {
-      userId: usuario.id,
-      nombre,
-      rol,
-      activo,
-      tecnicoId: rol === "Técnico" ? tecnicoId || null : null,
+    const body: Record<string, unknown> = { userId: cuenta.id, nombre }
+    // El propio administrador no puede cambiar su rol ni desactivarse.
+    if (!esUnoMismo) {
+      body.rol = rol
+      body.clienteId = rol === "cliente" ? clienteId : null
+      body.activo = activo
     }
     if (cambiarPass) body.password = password
     const res = await fetch("/api/usuarios", {
@@ -437,7 +514,7 @@ function EditarUsuarioDialog({
       toast.error(data?.error ?? "No se pudieron guardar los cambios.")
       return
     }
-    toast.success("Usuario actualizado.")
+    toast.success(activar && activo ? "Usuario activado." : "Usuario actualizado.")
     onClose()
     await onGuardado()
   }
@@ -446,8 +523,8 @@ function EditarUsuarioDialog({
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Editar usuario</DialogTitle>
-          <DialogDescription>{usuario.email}</DialogDescription>
+          <DialogTitle>{activar ? "Asignar rol y activar" : "Editar usuario"}</DialogTitle>
+          <DialogDescription>{cuenta.email}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -474,32 +551,15 @@ function EditarUsuarioDialog({
             )}
           </Field>
 
-          {rol === "Técnico" && (
-            <Field>
-              <FieldLabel htmlFor="editar-tecnico">Ficha de técnico vinculada</FieldLabel>
-              <Select value={tecnicoId} onValueChange={setTecnicoId}>
-                <SelectTrigger id="editar-tecnico">
-                  <SelectValue placeholder="Selecciona un técnico" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tecnicosDisponibles.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                La cuenta solo verá las órdenes asignadas a esta ficha.
-              </p>
-            </Field>
+          {rol === "cliente" && (
+            <EmpresaSelect id="editar-empresa" value={clienteId} onChange={setClienteId} />
           )}
 
           <div className="flex items-center justify-between rounded-lg border border-border p-3">
             <div className="flex flex-col gap-0.5">
               <Label htmlFor="editar-activo">Cuenta activa</Label>
               <span className="text-xs text-muted-foreground">
-                Si se desactiva, la persona no podrá usar el panel.
+                Si está inactiva, la persona no podrá usar el sistema.
               </span>
             </div>
             <Switch
@@ -557,7 +617,7 @@ function EditarUsuarioDialog({
             Cancelar
           </Button>
           <Button onClick={guardar} disabled={guardando}>
-            {guardando ? "Guardando..." : "Guardar cambios"}
+            {guardando ? "Guardando..." : activar ? "Activar" : "Guardar cambios"}
           </Button>
         </DialogFooter>
       </DialogContent>

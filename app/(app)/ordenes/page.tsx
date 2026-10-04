@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { useStore } from "@/lib/store"
 import { puedeReasignarOrdenes } from "@/lib/permisos"
-import { formatFecha } from "@/lib/format"
+import { formatFecha, nombreTecnico } from "@/lib/format"
 import { ESTADOS_ORDEN, type OrdenServicio } from "@/lib/types"
 
 export default function OrdenesPage() {
@@ -36,12 +36,12 @@ export default function OrdenesPage() {
     const e = equipos.find((x) => x.id === id)
     return e ? `${e.tipo} · ${e.marca} ${e.modelo}`.trim() : "—"
   }
-  const nombreTecnico = (id: string | null) => tecnicos.find((t) => t.id === id)?.nombre ?? "Sin asignar"
+  const tecnicoDe = (id: string | null) => nombreTecnico(tecnicos, id)
 
   const filtradas = ordenes
     .filter((o) => {
       const q = query.toLowerCase()
-      const coincide = o.folio.toLowerCase().includes(q) || nombreCliente(o.clienteId).toLowerCase().includes(q) || nombreEquipo(o.equipoId).toLowerCase().includes(q) || nombreTecnico(o.tecnicoId).toLowerCase().includes(q) || o.tipoServicio.toLowerCase().includes(q)
+      const coincide = o.folio.toLowerCase().includes(q) || nombreCliente(o.clienteId).toLowerCase().includes(q) || nombreEquipo(o.equipoId).toLowerCase().includes(q) || tecnicoDe(o.tecnicoId).toLowerCase().includes(q) || o.tipoServicio.toLowerCase().includes(q)
       const coincideEstado = estadoFiltro === "todos" || o.estado === estadoFiltro
       return coincide && coincideEstado
     })
@@ -142,7 +142,7 @@ export default function OrdenesPage() {
                           </TableCell>
                           <TableCell className="max-w-40 truncate">{nombreCliente(o.clienteId)}</TableCell>
                           <TableCell className="hidden md:table-cell">{nombreEquipo(o.equipoId)}</TableCell>
-                          <TableCell className="hidden lg:table-cell">{nombreTecnico(o.tecnicoId)}</TableCell>
+                          <TableCell className="hidden lg:table-cell">{tecnicoDe(o.tecnicoId)}</TableCell>
                           <TableCell className="hidden sm:table-cell">{formatFecha(o.fechaProgramada ?? o.fechaSolicitud)}</TableCell>
                           <TableCell><EstadoOrdenBadge estado={o.estado} /></TableCell>
                           <TableCell>

@@ -32,12 +32,13 @@ import { useStore } from "@/lib/store"
 import { createClient } from "@/lib/supabase/client"
 import { iniciales } from "@/lib/format"
 import { puedeGestionarUsuarios } from "@/lib/permisos"
+import { ETIQUETA_ROL } from "@/lib/types"
 import { toast } from "sonner"
 
 export default function ConfiguracionPage() {
-  const { usuarioActual } = useStore()
+  const { usuarioActual, recargar } = useStore()
   const esAdmin = puedeGestionarUsuarios(usuarioActual.rol)
-  const esSupervisor = usuarioActual.rol === "Supervisor"
+  const esSupervisor = usuarioActual.rol === "supervisor"
 
   const [nombre, setNombre] = React.useState("")
   const [email, setEmail] = React.useState("")
@@ -61,13 +62,14 @@ export default function ConfiguracionPage() {
     const supabase = createClient()
     const { error } = await supabase
       .from("profiles")
-      .update({ nombre_completo: nombre })
+      .update({ full_name: nombre })
       .eq("id", usuarioActual.id)
     setGuardando(false)
     if (error) {
       toast.error("No se pudo actualizar el perfil.")
       return
     }
+    await recargar()
     toast.success("Perfil actualizado.")
   }
 
@@ -104,7 +106,7 @@ export default function ConfiguracionPage() {
                 <div className="flex flex-col gap-1">
                   <span className="font-medium">{usuarioActual.nombre}</span>
                   <Badge variant="secondary" className="w-fit">
-                    {usuarioActual.rol}
+                    {ETIQUETA_ROL[usuarioActual.rol]}
                   </Badge>
                 </div>
               </div>
@@ -129,8 +131,12 @@ export default function ConfiguracionPage() {
                       id="perfil-email"
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      readOnly
+                      disabled
                     />
+                    <FieldDescription>
+                      El correo de acceso no se cambia desde aquí.
+                    </FieldDescription>
                   </Field>
                 </div>
               </FieldGroup>
@@ -150,8 +156,8 @@ export default function ConfiguracionPage() {
               <CardTitle>Usuarios</CardTitle>
               <CardDescription>
                 {esAdmin
-                  ? "Crea y administra las cuentas de personal con acceso al panel."
-                  : "Personas con acceso a ZARAMAN Servicios."}
+                  ? "Crea cuentas, activa a las personas registradas y asigna su rol."
+                  : "Cuentas con acceso a ZARAMAN Servicios."}
               </CardDescription>
             </CardHeader>
             <CardContent>

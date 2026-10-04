@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { useStore } from "@/lib/store"
 import { puedeReasignarOrdenes } from "@/lib/permisos"
-import { formatFecha, formatHora } from "@/lib/format"
+import { formatFecha, formatHora, nombreTecnico } from "@/lib/format"
 
 export default function OrdenDetailPage() {
   const params = useParams<{ id: string }>()
@@ -139,8 +139,7 @@ export default function OrdenDetailPage() {
                 {equipo ? <Link href={`/equipos/${equipo.id}`} className="text-primary hover:underline">{equipo.tipo} · {equipo.marca} {equipo.modelo}</Link> : "—"}
               </Dato>
               <Dato label="Técnico responsable">
-                {tecnico?.nombre ?? "Sin asignar"}
-                {tecnico?.zona ? <span className="block text-xs text-muted-foreground">Zona: {tecnico.zona}</span> : null}
+                {nombreTecnico(tecnicos, orden.tecnicoId)}
                 {puedeGestionarOrden ? (
                   <ReasignarTecnico
                     tecnicos={tecnicos}

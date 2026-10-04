@@ -16,7 +16,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { useStore } from "@/lib/store"
-import { formatHora } from "@/lib/format"
+import { formatHora, nombreTecnico } from "@/lib/format"
 import type { OrdenServicio } from "@/lib/types"
 
 type Vista = "dia" | "semana" | "mes"
@@ -77,8 +77,7 @@ export default function AgendaPage() {
     const e = equipos.find((x) => x.id === id)
     return e ? `${e.tipo} · ${e.marca} ${e.modelo}`.trim() : "—"
   }
-  const nombreTecnico = (id: string | null) =>
-    tecnicos.find((t) => t.id === id)?.nombre ?? "Sin asignar"
+  const tecnicoDe = (id: string | null) => nombreTecnico(tecnicos, id)
 
   const hoyISO = isoDeFecha(hoy)
 
@@ -303,7 +302,7 @@ export default function AgendaPage() {
                               {nombreEquipo(o.equipoId)}
                             </span>
                             <span className="truncate text-xs text-muted-foreground">
-                              {nombreTecnico(o.tecnicoId)}
+                              {tecnicoDe(o.tecnicoId)}
                             </span>
                             {enConflicto && (
                               <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
