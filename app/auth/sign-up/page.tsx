@@ -40,7 +40,9 @@ export default function SignUpPage() {
         emailRedirectTo:
           process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
           `${window.location.origin}/auth/callback`,
-        data: { nombre_completo: nombre, rol: "Coordinador" },
+        // El rol nunca se envía desde el formulario: handle_new_user() crea el
+        // perfil como 'Cliente' sin empresa y un administrador lo asigna después.
+        data: { nombre_completo: nombre },
       },
     })
     if (error) {
