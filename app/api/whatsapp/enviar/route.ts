@@ -1,21 +1,19 @@
-import { createClient } from "@/lib/supabase/server"
+import { normalizarTelefonoEnvio } from "@/lib/whatsapp"
+import { autorizarWhatsApp, configWhatsApp, validarContexto } from "@/lib/whatsapp-server"
 
 // Envío de mensajes salientes de WhatsApp desde la bandeja interna.
-// Persiste el mensaje con la sesión del usuario (RLS aplica) y, si las
-// credenciales de la API de WhatsApp Business están configuradas, lo envía.
-// Sin credenciales, guarda el mensaje como "pendiente" y avisa que la
-// configuración está pendiente, sin romper el flujo.
+// Solo Administrador, Coordinador y Supervisor activos. El mensaje se guarda
+// primero (con la sesión del usuario, RLS aplica) y después se envía a Meta;
+// el resultado actualiza su estado. Sin credenciales queda como "pendiente".
 
 export const dynamic = "force-dynamic"
 
+const MAX_LARGO_MENSAJE = 4096
+
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return Response.json({ error: "No autorizado." }, { status: 401 })
-  }
+  const auth = await autorizarWhatsApp()
+  if (!auth.ok) return auth.response
+  const { supabase, userId } = auth
 
   let body: any
   try {
@@ -24,57 +22,32 @@ export async function POST(request: Request) {
     return Response.json({ error: "Cuerpo inválido." }, { status: 400 })
   }
 
-  const telefono: string = (body?.telefono ?? "").toString().trim()
+  const telefono = normalizarTelefonoEnvio((body?.telefono ?? "").toString())
   const mensaje: string = (body?.mensaje ?? "").toString().trim()
-  const leadId: string | null = body?.leadId ?? null
-  const clienteId: string | null = body?.clienteId ?? null
+  const leadId: string | null = body?.leadId || null
+  const clienteId: string | null = body?.clienteId || null
 
-  if (!telefono || !mensaje) {
-    return Response.json({ error: "Teléfono y mensaje son obligatorios." }, { status: 400 })
+  if (!telefono) {
+    return Response.json(
+      { error: "Teléfono inválido. Usa 10 dígitos o el formato internacional." },
+      { status: 400 },
+    )
+  }
+  if (!mensaje) {
+    return Response.json({ error: "El mensaje es obligatorio." }, { status: 400 })
+  }
+  if (mensaje.length > MAX_LARGO_MENSAJE) {
+    return Response.json(
+      { error: `El mensaje no puede pasar de ${MAX_LARGO_MENSAJE} caracteres.` },
+      { status: 400 },
+    )
   }
 
-  const token = process.env.WHATSAPP_TOKEN
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
-  const configurado = Boolean(token && phoneNumberId)
+  const errorContexto = await validarContexto(supabase, leadId, clienteId)
+  if (errorContexto) return errorContexto
 
-  let whatsappMessageId: string | null = null
-  let estado = "pendiente"
-  let errorEnvio: string | null = null
-
-  if (configurado) {
-    try {
-      const res = await fetch(
-        `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            recipient_type: "individual",
-            to: telefono,
-            type: "text",
-            text: { body: mensaje },
-          }),
-        },
-      )
-      const data = await res.json().catch(() => null)
-      if (res.ok) {
-        whatsappMessageId = data?.messages?.[0]?.id ?? null
-        estado = "enviado"
-      } else {
-        errorEnvio = data?.error?.message ?? "La API de WhatsApp rechazó el envío."
-        estado = "fallido"
-      }
-    } catch (error) {
-      errorEnvio = (error as Error).message
-      estado = "fallido"
-    }
-  }
-
-  const { data: row, error } = await supabase
+  // 1) Guardar antes de enviar: nunca sale un mensaje que no quede registrado.
+  const { data: guardado, error: errorGuardar } = await supabase
     .from("whatsapp_mensajes")
     .insert({
       lead_id: leadId,
@@ -83,21 +56,66 @@ export async function POST(request: Request) {
       direccion: "saliente",
       tipo: "texto",
       mensaje,
-      whatsapp_message_id: whatsappMessageId,
-      estado,
+      estado: "pendiente",
       leido: true,
-      enviado_por: user.id,
+      enviado_por: userId,
     })
     .select("*")
     .single()
 
-  if (error || !row) {
+  if (errorGuardar || !guardado) {
     return Response.json({ error: "No se pudo guardar el mensaje." }, { status: 500 })
   }
 
+  const config = configWhatsApp()
+  if (!config.envioConfigurado) {
+    return Response.json({ mensaje: guardado, configurado: false, estado: "pendiente", error: null })
+  }
+
+  // 2) Enviar a Meta.
+  let estado = "fallido"
+  let whatsappMessageId: string | null = null
+  let errorEnvio: string | null = null
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: telefono,
+          type: "text",
+          text: { body: mensaje },
+        }),
+      },
+    )
+    const data = await res.json().catch(() => null)
+    if (res.ok) {
+      whatsappMessageId = data?.messages?.[0]?.id ?? null
+      estado = "enviado"
+    } else {
+      errorEnvio = data?.error?.message ?? "La API de WhatsApp rechazó el envío."
+    }
+  } catch (error) {
+    errorEnvio = (error as Error).message
+  }
+
+  // 3) Actualizar el registro con el resultado.
+  const { data: actualizado } = await supabase
+    .from("whatsapp_mensajes")
+    .update({ estado, whatsapp_message_id: whatsappMessageId })
+    .eq("id", guardado.id)
+    .select("*")
+    .single()
+
   return Response.json({
-    mensaje: row,
-    configurado,
+    mensaje: actualizado ?? { ...guardado, estado, whatsapp_message_id: whatsappMessageId },
+    configurado: true,
     estado,
     error: errorEnvio,
   })

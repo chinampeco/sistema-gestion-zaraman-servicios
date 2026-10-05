@@ -1,23 +1,18 @@
-import { createClient } from "@/lib/supabase/server"
+import { autorizarWhatsApp, configWhatsApp } from "@/lib/whatsapp-server"
 
 // Reporta si la integración de WhatsApp Business está configurada, para que
 // la bandeja muestre "Configuración pendiente" sin exponer credenciales.
+// Solo Administrador, Coordinador y Supervisor activos.
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return Response.json({ error: "No autorizado." }, { status: 401 })
-  }
+  const auth = await autorizarWhatsApp()
+  if (!auth.ok) return auth.response
 
-  const configurado = Boolean(
-    process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID,
-  )
-  const webhookConfigurado = Boolean(process.env.WHATSAPP_VERIFY_TOKEN)
-
-  return Response.json({ configurado, webhookConfigurado })
+  const config = configWhatsApp()
+  return Response.json({
+    configurado: config.envioConfigurado,
+    webhookConfigurado: Boolean(config.verifyToken && config.appSecret),
+  })
 }

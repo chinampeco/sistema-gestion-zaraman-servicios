@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils"
 import { useStore } from "@/lib/store"
 import type { ConversacionWhatsApp, MensajeWhatsApp } from "@/lib/types"
 import { formatFechaHora } from "@/lib/format"
+import { mismoTelefono } from "@/lib/whatsapp"
+import { puedeUsarWhatsApp } from "@/lib/permisos"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -71,7 +73,9 @@ export default function WhatsAppPage() {
     enviarMensajeWhatsApp,
     agregarNotaWhatsApp,
     marcarConversacionLeida,
+    usuarioActual,
   } = useStore()
+  const puedeEscribir = usuarioActual.activo && puedeUsarWhatsApp(usuarioActual.rol)
 
   const { data: estado } = useSWR<{ configurado: boolean; webhookConfigurado: boolean }>(
     "/api/whatsapp/estado",
@@ -95,9 +99,9 @@ export default function WhatsAppPage() {
         const l = leads.find((l) => l.id === m.leadId)
         if (l) return l.empresa || l.nombre
       }
-      const porTelLead = leads.find((l) => l.telefono === m.telefono)
+      const porTelLead = leads.find((l) => mismoTelefono(l.telefono, m.telefono))
       if (porTelLead) return porTelLead.empresa || porTelLead.nombre
-      const porTelCliente = clientes.find((c) => c.telefono === m.telefono)
+      const porTelCliente = clientes.find((c) => mismoTelefono(c.telefono, m.telefono))
       if (porTelCliente) return porTelCliente.nombre
       return m.telefono
     },
@@ -143,7 +147,7 @@ export default function WhatsAppPage() {
   }, [activa?.mensajes.length, seleccionado])
 
   async function handleEnviar() {
-    if (!activa || !texto.trim()) return
+    if (!puedeEscribir || !activa || !texto.trim()) return
     setEnviando(true)
     const contexto = { leadId: activa.leadId, clienteId: activa.clienteId }
     if (modoNota) {
@@ -182,7 +186,7 @@ export default function WhatsAppPage() {
         }
       />
 
-      {estado && !estado.configurado && (
+      {estado?.configurado === false && (
         <Card className="flex items-start gap-3 border-amber-500/40 bg-amber-500/5 p-4">
           <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600" />
           <div className="flex flex-col gap-1 text-sm">
@@ -299,6 +303,12 @@ export default function WhatsAppPage() {
                 ))}
               </div>
 
+              {!puedeEscribir ? (
+                <div className="border-t p-3 text-sm text-muted-foreground">
+                  Solo lectura: enviar mensajes y escribir notas internas está reservado a
+                  Administrador, Coordinador y Supervisor.
+                </div>
+              ) : (
               <div className="border-t p-3">
                 <div className="mb-2 flex items-center gap-2">
                   <Button
@@ -344,6 +354,7 @@ export default function WhatsAppPage() {
                   </Button>
                 </div>
               </div>
+              )}
             </>
           )}
         </Card>
