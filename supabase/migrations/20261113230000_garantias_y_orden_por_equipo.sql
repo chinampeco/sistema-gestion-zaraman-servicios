@@ -11,7 +11,12 @@
 -- * ordenes_servicio: referencia de la dependencia (p. ej. SAE-PTAR-ISSFAM-12)
 --   y actividades con su columna "operativo" (lo que se hizo / observación).
 --
--- Solo cambios aditivos: tabla y columnas nuevas, sin DROP ni cambios a datos.
+-- * orden_equipos: varios equipos en una orden (formato por partida/ficha),
+--   cada uno con "realizado" y observaciones.
+-- * empresas: representante legal y giro para los formatos impresos.
+--
+-- Solo cambios aditivos: tablas y columnas nuevas, sin DROP. Único cambio de
+-- datos: llenar el representante legal de TOLTECATL y BOCAM (estaba vacío).
 
 -- 1. Garantías ------------------------------------------------------------------
 
@@ -217,3 +222,111 @@ revoke all on function public.actividades_orden_por_defecto() from public, anon,
 create trigger ad_actividades_orden
   before insert on public.ordenes_servicio
   for each row execute function public.actividades_orden_por_defecto();
+
+-- 5. Varios equipos por orden --------------------------------------------------
+-- Las órdenes de TOLTECATL (por partida) y BOCAM (por ficha) listan varios
+-- equipos; cada equipo conserva su historial. Sirve igual si la orden es de un
+-- solo equipo (ordenes_servicio.equipo_id sigue siendo el equipo principal).
+
+create table public.orden_equipos (
+  id uuid primary key default gen_random_uuid(),
+  empresa_id uuid not null references public.empresas(id),
+  orden_id uuid not null references public.ordenes_servicio(id) on delete cascade,
+  equipo_id uuid not null references public.equipos(id) on delete restrict,
+  realizado boolean not null default false,
+  observaciones text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint orden_equipos_unico unique (orden_id, equipo_id)
+);
+
+create index orden_equipos_equipo_idx on public.orden_equipos (equipo_id);
+
+create trigger trg_touch_orden_equipos before update on public.orden_equipos
+  for each row execute function public.touch_updated_at();
+
+-- El equipo debe ser del mismo cliente que la orden; orden y equipo no cambian.
+create or replace function public.validar_orden_equipo()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if tg_op = 'UPDATE' and (new.orden_id is distinct from old.orden_id
+                           or new.equipo_id is distinct from old.equipo_id) then
+    raise exception 'No se puede cambiar la orden ni el equipo; quita el renglón y agrégalo de nuevo';
+  end if;
+  if (select cliente_id from public.equipos where id = new.equipo_id)
+     is distinct from (select cliente_id from public.ordenes_servicio where id = new.orden_id) then
+    raise exception 'El equipo debe ser del mismo cliente que la orden';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.validar_orden_equipo() from public, anon, authenticated;
+
+create trigger trg_validar_orden_equipo before insert or update on public.orden_equipos
+  for each row execute function public.validar_orden_equipo();
+
+-- Misma regla de empresa que el resto: la toma de su orden.
+create or replace function public.asignar_empresa_orden_equipo()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+declare v uuid;
+begin
+  v := public.empresa_de('ordenes_servicio', new.orden_id);
+  if tg_op = 'UPDATE' and new.empresa_id is distinct from old.empresa_id then
+    raise exception 'No se puede cambiar la empresa de un registro existente';
+  end if;
+  if new.empresa_id is null then
+    new.empresa_id := v;
+  elsif new.empresa_id <> v then
+    raise exception 'El registro y su registro relacionado pertenecen a empresas distintas';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.asignar_empresa_orden_equipo() from public, anon, authenticated;
+
+create trigger aa_asignar_empresa before insert or update on public.orden_equipos
+  for each row execute function public.asignar_empresa_orden_equipo();
+
+alter table public.orden_equipos enable row level security;
+
+-- Quien ve la orden (según las reglas actuales de órdenes, incluida la del
+-- técnico asignado) ve sus equipos. Captura: gestión. El técnico puede marcar
+-- "realizado" en los equipos de sus órdenes.
+create policy orden_equipos_select on public.orden_equipos for select to authenticated
+  using (exists (select 1 from public.ordenes_servicio o where o.id = orden_id));
+create policy orden_equipos_insert on public.orden_equipos for insert to authenticated
+  with check (public.puede_gestionar_operacion()
+              and exists (select 1 from public.ordenes_servicio o where o.id = orden_id));
+create policy orden_equipos_update on public.orden_equipos for update to authenticated
+  using ((public.puede_gestionar_operacion() or public.is_tecnico())
+         and exists (select 1 from public.ordenes_servicio o where o.id = orden_id))
+  with check ((public.puede_gestionar_operacion() or public.is_tecnico())
+              and exists (select 1 from public.ordenes_servicio o where o.id = orden_id));
+create policy orden_equipos_delete on public.orden_equipos for delete to authenticated
+  using (public.puede_gestionar_operacion());
+create policy orden_equipos_solo_empresa_activa on public.orden_equipos
+  as restrictive for all to authenticated
+  using (empresa_id = (select public.empresa_activa()))
+  with check (empresa_id = (select public.empresa_activa()));
+
+-- 6. Representante legal (firma "Verificó / Visto bueno" de los formatos) --------
+
+alter table public.empresas
+  add column representante_legal text not null default '',
+  add column representante_cargo text not null default 'Representante Legal',
+  add column giro text not null default '';
+
+update public.empresas set
+  representante_legal = 'Leonardo Palacios Santiago',
+  giro = 'Suministro, diseño, instalación y mantenimiento de redes eléctricas en baja y media tensión, sistemas de aire acondicionado y refrigeración, sistemas de respaldo eléctrico, sistemas de protección contra descargas atmosféricas y tierras físicas, sistemas contraincendios, así como suministro y reparación de equipos médicos.'
+where clave = 'TOLTECATL' and representante_legal = '';
+
+update public.empresas set
+  representante_legal = 'L.A.E. Ivonne Obregón Gutiérrez'
+where clave = 'BOCAM' and representante_legal = '';
