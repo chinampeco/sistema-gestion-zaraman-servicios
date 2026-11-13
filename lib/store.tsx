@@ -48,6 +48,7 @@ import type {
   MensajeWhatsApp,
   OrdenServicio,
   Pago,
+  ProcedenciaOrden,
   Tecnico,
   Ticket,
   Usuario,
@@ -95,7 +96,10 @@ interface StoreContextValue {
   actualizarEquipo: (id: string, data: Partial<Equipo>) => Promise<void>
   eliminarEquipo: (id: string) => Promise<boolean>
 
-  crearOrden: (data: Omit<OrdenServicio, "id" | "folio">) => Promise<OrdenServicio | null>
+  // Sin procedencia, la base la deduce (Ticket, Garantía o Manual).
+  crearOrden: (
+    data: Omit<OrdenServicio, "id" | "folio" | "procedencia"> & { procedencia?: ProcedenciaOrden },
+  ) => Promise<OrdenServicio | null>
   actualizarOrden: (id: string, data: Partial<OrdenServicio>) => Promise<void>
   asignarOrdenConGarantia: (
     ordenId: string,
@@ -671,6 +675,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           prioridad: "Normal",
           estado: "Pendiente",
           descripcionFalla: `Generada desde cotización ${cotizacion.folio}.`,
+          procedencia: "Cotización",
           diagnostico: "",
           trabajoRealizado: "",
           materiales,

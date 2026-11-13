@@ -159,6 +159,7 @@ export async function POST(request: Request) {
     .from("ordenes_servicio")
     // Sin folio: la base asigna el de la empresa del cliente (OS-000020, BOC-OS-000001...).
     .insert({
+      procedencia: "Cotización",
       cliente_id: cot.cliente_id,
       equipo_id: cot.equipo_id ?? null,
       fecha_solicitud: hoyISO(),

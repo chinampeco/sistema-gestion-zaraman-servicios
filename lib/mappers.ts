@@ -28,6 +28,7 @@ import type {
   MetodoPago,
   OrdenServicio,
   Pago,
+  ProcedenciaOrden,
   Prioridad,
   PrioridadLead,
   PrioridadTicket,
@@ -93,6 +94,7 @@ export function mapOrden(row: Record<string, any>): OrdenServicio {
   return {
     id: row.id,
     folio: txt(row.folio),
+    procedencia: (row.procedencia ?? "Manual") as ProcedenciaOrden,
     clienteId: txt(row.cliente_id),
     equipoId: txt(row.equipo_id),
     fechaSolicitud: fecha(row.fecha_solicitud) ?? "",
@@ -420,6 +422,8 @@ export function equipoToDb(data: Partial<Equipo>): Record<string, any> {
 
 export function ordenToDb(data: Partial<OrdenServicio>): Record<string, any> {
   const out: Record<string, any> = {}
+  // Solo cuenta al crear la orden; la base la mantiene fija después.
+  if (data.procedencia !== undefined) out.procedencia = data.procedencia
   if (data.clienteId !== undefined) out.cliente_id = data.clienteId || null
   if (data.equipoId !== undefined) out.equipo_id = data.equipoId || null
   if (data.fechaSolicitud !== undefined) out.fecha_solicitud = fecha(data.fechaSolicitud)

@@ -123,6 +123,7 @@ export function GarantiaOrden({ orden }: { orden: OrdenServicio }) {
     setGuardando(true)
     try {
       const nueva = await crearOrden({
+        procedencia: "Garantía",
         clienteId: orden.clienteId,
         equipoId: orden.equipoId,
         fechaSolicitud: hoyISO(),

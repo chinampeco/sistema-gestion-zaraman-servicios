@@ -135,9 +135,21 @@ export interface EvidenciaOrden {
   fecha: string
 }
 
+// De dónde salió la orden. Se fija al crearla y no cambia.
+export type ProcedenciaOrden = "Manual" | "Ticket" | "Cotización" | "Garantía" | "Contrato"
+
+export const PROCEDENCIAS_ORDEN: ProcedenciaOrden[] = [
+  "Manual",
+  "Ticket",
+  "Cotización",
+  "Garantía",
+  "Contrato",
+]
+
 export interface OrdenServicio {
   id: string
   folio: string
+  procedencia: ProcedenciaOrden
   clienteId: string
   equipoId: string
   fechaSolicitud: string

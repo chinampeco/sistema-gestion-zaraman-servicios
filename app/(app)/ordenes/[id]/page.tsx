@@ -15,6 +15,7 @@ import { OrdenParteTecnico } from "@/components/ordenes/orden-parte-tecnico"
 import { GarantiaOrden } from "@/components/ordenes/garantia-orden"
 import { EstadoOrdenBadge, PrioridadBadge } from "@/components/status-badges"
 import { Badge } from "@/components/ui/badge"
+import { ProcedenciaBadge } from "@/components/ordenes/procedencia-badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -84,6 +85,7 @@ export default function OrdenDetailPage() {
         <EstadoOrdenBadge estado={orden.estado} />
         <PrioridadBadge prioridad={orden.prioridad} />
         <Badge variant="outline">{orden.tipoServicio}</Badge>
+        <ProcedenciaBadge procedencia={orden.procedencia} />
         {cotizacion ? (
           <Button variant="ghost" size="sm" render={<Link href={`/cotizaciones/${cotizacion.id}`} />} nativeButton={false}>
             <FileText data-icon="inline-start" />

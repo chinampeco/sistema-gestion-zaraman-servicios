@@ -19,12 +19,14 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { useStore } from "@/lib/store"
 import { puedeReasignarOrdenes } from "@/lib/permisos"
 import { formatFecha } from "@/lib/format"
-import { ESTADOS_ORDEN, type OrdenServicio } from "@/lib/types"
+import { ESTADOS_ORDEN, PROCEDENCIAS_ORDEN, type OrdenServicio } from "@/lib/types"
+import { ProcedenciaBadge } from "@/components/ordenes/procedencia-badge"
 
 export default function OrdenesPage() {
   const { ordenes, clientes, equipos, tecnicos, usuarioActual, eliminarOrden } = useStore()
   const [query, setQuery] = React.useState("")
   const [estadoFiltro, setEstadoFiltro] = React.useState<string>("todos")
+  const [procedenciaFiltro, setProcedenciaFiltro] = React.useState<string>("todas")
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<OrdenServicio | null>(null)
   const [deleting, setDeleting] = React.useState<OrdenServicio | null>(null)
@@ -43,7 +45,8 @@ export default function OrdenesPage() {
       const q = query.toLowerCase()
       const coincide = o.folio.toLowerCase().includes(q) || nombreCliente(o.clienteId).toLowerCase().includes(q) || nombreEquipo(o.equipoId).toLowerCase().includes(q) || nombreTecnico(o.tecnicoId).toLowerCase().includes(q) || o.tipoServicio.toLowerCase().includes(q)
       const coincideEstado = estadoFiltro === "todos" || o.estado === estadoFiltro
-      return coincide && coincideEstado
+      const coincideProcedencia = procedenciaFiltro === "todas" || o.procedencia === procedenciaFiltro
+      return coincide && coincideEstado && coincideProcedencia
     })
     .sort((a, b) => b.folio.localeCompare(a.folio))
 
@@ -80,6 +83,13 @@ export default function OrdenesPage() {
               <SelectContent>
                 <SelectItem value="todos">Todos los estados</SelectItem>
                 {ESTADOS_ORDEN.map((estado) => <SelectItem key={estado} value={estado}>{estado}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={procedenciaFiltro} onValueChange={(v) => setProcedenciaFiltro(v as string)}>
+              <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Procedencia" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas las procedencias</SelectItem>
+                {PROCEDENCIAS_ORDEN.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -138,7 +148,10 @@ export default function OrdenesPage() {
                         <TableRow key={o.id}>
                           <TableCell>
                             <Link href={`/ordenes/${o.id}`} className="font-mono text-sm font-medium text-primary hover:underline">{o.folio}</Link>
-                            <div className="text-xs text-muted-foreground">{o.tipoServicio}</div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                              {o.tipoServicio}
+                              <ProcedenciaBadge procedencia={o.procedencia} />
+                            </div>
                           </TableCell>
                           <TableCell className="max-w-40 truncate">{nombreCliente(o.clienteId)}</TableCell>
                           <TableCell className="hidden md:table-cell">{nombreEquipo(o.equipoId)}</TableCell>
