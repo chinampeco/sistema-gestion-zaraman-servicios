@@ -24,6 +24,9 @@
 --   (b) Los códigos de almacén y de producto pasan de únicos globales a únicos por empresa
 --       (DROP CONSTRAINT + nuevo índice único).
 --   (c) asignar_orden_con_garantia_v2 se reemplaza para validar la empresa.
+--   (d) Folios separados por empresa: los triggers de folio se reemplazan. ZARAMAN
+--       conserva su formato y numeración (OS-000010...); las demás usan su prefijo
+--       (BOC-OS-000001, TOL-COT-000001...). Las secuencias anteriores quedan sin uso.
 
 -- 1. Empresas -----------------------------------------------------------------
 
@@ -34,6 +37,9 @@ create table public.empresas (
   razon_social text not null,
   rfc text,
   logo_path text,
+  -- Prefijo de folios de la empresa (BOC -> BOC-OS-000001). ZARAMAN no lleva prefijo
+  -- para conservar su numeración actual (OS-000010, COT-000005...).
+  prefijo_folio text unique check (prefijo_folio ~ '^[A-Z0-9]{2,6}$'),
   -- Respaldo solo para procesos del servidor sin usuario (p. ej. webhooks) cuando
   -- el registro no tiene un padre del cual tomar la empresa.
   es_predeterminada boolean not null default false,
@@ -47,10 +53,10 @@ create unique index empresas_una_predeterminada on public.empresas (es_predeterm
 create trigger trg_touch_empresas before update on public.empresas
   for each row execute function public.touch_updated_at();
 
-insert into public.empresas (clave, nombre_comercial, razon_social, es_predeterminada) values
-  ('ZARAMAN',   'ZARAMAN SERVICIOS', 'ZARAMAN SERVICIOS', true),
-  ('BOCAM',     'BOCAM',             'CONSTRUCTORA E INMOBILIARIA BOCAM SA DE CV', false),
-  ('TOLTECATL', 'TOLTECATL',         'INGENIERÍA Y MANTENIMIENTO INDUSTRIAL TOLTECATL SA DE CV', false);
+insert into public.empresas (clave, nombre_comercial, razon_social, rfc, prefijo_folio, es_predeterminada) values
+  ('ZARAMAN',   'ZARAMAN',   'ZARAMAN S.A. de C.V.', 'ZAR241003615', null, true),
+  ('BOCAM',     'BOCAM',     'CONSTRUCTORA E INMOBILIARIA BOCAM S.A. de C.V.', null, 'BOC', false),
+  ('TOLTECATL', 'TOLTECATL', 'INGENIERÍA Y MANTENIMIENTO INDUSTRIAL TOLTECATL S.A. de C.V.', null, 'TOL', false);
 
 -- 2. Pertenencia de usuarios a empresas ----------------------------------------
 
@@ -395,7 +401,117 @@ begin
 end;
 $$;
 
--- 9. Permisos de ejecución --------------------------------------------------------
+-- 9. Folios separados por empresa (cambio (d)) -------------------------------------
+-- Un contador por empresa y tipo de documento. Los triggers de folio existentes se
+-- reemplazan para usarlo; corren después de aa_asignar_empresa (orden alfabético),
+-- así que ya conocen la empresa del registro.
+
+create table public.empresa_folios (
+  empresa_id uuid not null references public.empresas(id) on delete cascade,
+  tipo text not null check (tipo in ('OS', 'TK', 'COT', 'FAC', 'PAG')),
+  ultimo bigint not null default 0,
+  primary key (empresa_id, tipo)
+);
+alter table public.empresa_folios enable row level security;
+revoke all on table public.empresa_folios from anon, authenticated;
+
+-- ZARAMAN continúa donde va su numeración actual (sin repetir números ya usados).
+do $$
+declare
+  v_zaraman uuid := (select id from public.empresas where clave = 'ZARAMAN');
+  v_seq bigint;
+begin
+  select case when is_called then last_value else last_value - 1 end into v_seq from public.ordenes_folio_seq;
+  insert into public.empresa_folios values (v_zaraman, 'OS', greatest(v_seq,
+    coalesce((select max(substring(folio from '^OS-([0-9]+)$')::bigint) from public.ordenes_servicio), 0)));
+  select case when is_called then last_value else last_value - 1 end into v_seq from public.tickets_folio_seq;
+  insert into public.empresa_folios values (v_zaraman, 'TK', greatest(v_seq,
+    coalesce((select max(substring(folio from '^TK-([0-9]+)$')::bigint) from public.tickets), 0)));
+  select case when is_called then last_value else last_value - 1 end into v_seq from public.cotizaciones_folio_seq;
+  insert into public.empresa_folios values (v_zaraman, 'COT', greatest(v_seq,
+    coalesce((select max(substring(folio from '^COT-([0-9]+)$')::bigint) from public.cotizaciones), 0)));
+  select case when is_called then last_value else last_value - 1 end into v_seq from public.facturas_folio_seq;
+  insert into public.empresa_folios values (v_zaraman, 'FAC', greatest(v_seq,
+    coalesce((select max(substring(folio from '^FAC-([0-9]+)$')::bigint) from public.facturas), 0)));
+  select case when is_called then last_value else last_value - 1 end into v_seq from public.pagos_folio_seq;
+  insert into public.empresa_folios values (v_zaraman, 'PAG', greatest(v_seq,
+    coalesce((select max(substring(folio from '^PAG-([0-9]+)$')::bigint) from public.pagos), 0)));
+end $$;
+
+create or replace function public.siguiente_folio(p_empresa_id uuid, p_tipo text)
+returns text
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_n bigint;
+  v_prefijo text;
+begin
+  insert into public.empresa_folios as f (empresa_id, tipo, ultimo)
+  values (p_empresa_id, p_tipo, 1)
+  on conflict (empresa_id, tipo) do update set ultimo = f.ultimo + 1
+  returning ultimo into v_n;
+
+  select prefijo_folio into v_prefijo from public.empresas where id = p_empresa_id;
+  return coalesce(v_prefijo || '-', '') || p_tipo || '-' || lpad(v_n::text, 6, '0');
+end;
+$$;
+
+create or replace function public.set_orden_folio()
+returns trigger language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.folio is null or new.folio = '' then
+    new.folio := public.siguiente_folio(new.empresa_id, 'OS');
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.set_ticket_folio()
+returns trigger language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.folio is null or new.folio = '' then
+    new.folio := public.siguiente_folio(new.empresa_id, 'TK');
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.set_cotizacion_folio()
+returns trigger language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.folio is null or new.folio = '' then
+    new.folio := public.siguiente_folio(new.empresa_id, 'COT');
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.set_factura_folio()
+returns trigger language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.folio is null or new.folio = '' then
+    new.folio := public.siguiente_folio(new.empresa_id, 'FAC');
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.set_pago_folio()
+returns trigger language plpgsql security definer set search_path = ''
+as $$
+begin
+  if new.folio is null or new.folio = '' then
+    new.folio := public.siguiente_folio(new.empresa_id, 'PAG');
+  end if;
+  return new;
+end;
+$$;
+
+-- 10. Permisos de ejecución --------------------------------------------------------
 
 revoke all on function public.empresas_del_usuario() from public, anon;
 revoke all on function public.empresa_activa() from public, anon;
@@ -403,6 +519,12 @@ revoke all on function public.seleccionar_empresa(uuid) from public, anon;
 revoke all on function public.usuarios_de_empresa_activa() from public, anon;
 revoke all on function public.empresa_de(text, uuid) from public, anon, authenticated;
 revoke all on function public.asignar_empresa() from public, anon, authenticated;
+revoke all on function public.siguiente_folio(uuid, text) from public, anon, authenticated;
+revoke all on function public.set_orden_folio() from public, anon, authenticated;
+revoke all on function public.set_ticket_folio() from public, anon, authenticated;
+revoke all on function public.set_cotizacion_folio() from public, anon, authenticated;
+revoke all on function public.set_factura_folio() from public, anon, authenticated;
+revoke all on function public.set_pago_folio() from public, anon, authenticated;
 grant execute on function public.empresas_del_usuario() to authenticated;
 grant execute on function public.empresa_activa() to authenticated;
 grant execute on function public.seleccionar_empresa(uuid) to authenticated;
