@@ -288,6 +288,11 @@ export interface Empresa {
   nombreComercial: string
   razonSocial: string
   rfc: string
+  domicilio: string
+  telefono: string
+  email: string
+  // Ruta pública del logo (p. ej. /empresas/toltecatl-logo.jpg); null si no tiene.
+  logoPath: string | null
   prefijoFolio: string | null
   activa: boolean
 }

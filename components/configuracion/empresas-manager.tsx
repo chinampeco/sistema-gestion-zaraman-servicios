@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Building2, Pencil, Plus } from "lucide-react"
+import { Pencil, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -30,12 +31,16 @@ import { empresaToDb } from "@/lib/mappers"
 import { useStore } from "@/lib/store"
 import { createClient } from "@/lib/supabase/client"
 import type { Empresa } from "@/lib/types"
+import { LogoEmpresa } from "@/components/empresas/logo-empresa"
 
 type FormEmpresa = {
   clave: string
   nombreComercial: string
   razonSocial: string
   rfc: string
+  domicilio: string
+  telefono: string
+  email: string
   prefijoFolio: string
   activa: boolean
 }
@@ -45,6 +50,9 @@ const VACIA: FormEmpresa = {
   nombreComercial: "",
   razonSocial: "",
   rfc: "",
+  domicilio: "",
+  telefono: "",
+  email: "",
   prefijoFolio: "",
   activa: true,
 }
@@ -80,7 +88,7 @@ export function EmpresasManager() {
               <TableRow key={e.id}>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <Building2 className="size-4 shrink-0 text-muted-foreground" />
+                    <LogoEmpresa empresa={e} className="h-8 w-14" />
                     <div className="flex min-w-0 flex-col">
                       <span className="font-medium">
                         {e.nombreComercial}
@@ -161,13 +169,18 @@ function EmpresaDialog({
           nombreComercial: empresa.nombreComercial,
           razonSocial: empresa.razonSocial,
           rfc: empresa.rfc,
+          domicilio: empresa.domicilio,
+          telefono: empresa.telefono,
+          email: empresa.email,
           prefijoFolio: empresa.prefijoFolio ?? "",
           activa: empresa.activa,
         }
       : VACIA,
   )
   const [guardando, setGuardando] = React.useState(false)
-  const set = (campo: keyof FormEmpresa) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (campo: keyof FormEmpresa) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) =>
     setForm((f) => ({ ...f, [campo]: e.target.value }))
 
   async function guardar() {
@@ -227,7 +240,7 @@ function EmpresaDialog({
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{esNueva ? "Nueva empresa" : "Editar empresa"}</DialogTitle>
           <DialogDescription>
@@ -284,6 +297,20 @@ function EmpresaDialog({
             <FieldLabel htmlFor="emp-rfc">RFC</FieldLabel>
             <Input id="emp-rfc" value={form.rfc} onChange={set("rfc")} className="uppercase" />
           </Field>
+          <Field>
+            <FieldLabel htmlFor="emp-domicilio">Domicilio fiscal</FieldLabel>
+            <Textarea id="emp-domicilio" rows={2} value={form.domicilio} onChange={set("domicilio")} />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="emp-telefono">Teléfono</FieldLabel>
+              <Input id="emp-telefono" value={form.telefono} onChange={set("telefono")} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="emp-email">Correo</FieldLabel>
+              <Input id="emp-email" type="email" value={form.email} onChange={set("email")} />
+            </Field>
+          </div>
           {!esNueva && (
             <div className="flex items-center justify-between rounded-lg border border-border p-3">
               <div className="flex flex-col gap-0.5">

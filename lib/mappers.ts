@@ -350,6 +350,10 @@ export function mapEmpresa(row: Record<string, any>): Empresa {
     nombreComercial: txt(row.nombre_comercial),
     razonSocial: txt(row.razon_social),
     rfc: txt(row.rfc),
+    domicilio: txt(row.domicilio),
+    telefono: txt(row.telefono),
+    email: txt(row.email),
+    logoPath: row.logo_path ?? null,
     prefijoFolio: row.prefijo_folio ?? null,
     activa: row.activa ?? true,
   }
@@ -361,6 +365,9 @@ export function empresaToDb(data: Partial<Empresa>): Record<string, any> {
   if (data.nombreComercial !== undefined) out.nombre_comercial = data.nombreComercial.trim()
   if (data.razonSocial !== undefined) out.razon_social = data.razonSocial.trim()
   if (data.rfc !== undefined) out.rfc = data.rfc.trim().toUpperCase() || null
+  if (data.domicilio !== undefined) out.domicilio = data.domicilio.trim() || null
+  if (data.telefono !== undefined) out.telefono = data.telefono.trim() || null
+  if (data.email !== undefined) out.email = data.email.trim().toLowerCase() || null
   if (data.prefijoFolio !== undefined)
     out.prefijo_folio = data.prefijoFolio ? data.prefijoFolio.trim().toUpperCase() : null
   if (data.activa !== undefined) out.activa = data.activa

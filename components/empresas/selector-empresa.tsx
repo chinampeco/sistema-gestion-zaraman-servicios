@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Building2, ChevronRight, LogOut } from "lucide-react"
+import { ChevronRight, LogOut } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Spinner } from "@/components/ui/spinner"
 import { createClient } from "@/lib/supabase/client"
 import type { Empresa } from "@/lib/types"
+import { LogoEmpresa } from "@/components/empresas/logo-empresa"
 
 export function SelectorEmpresa({
   empresas,
@@ -86,9 +87,7 @@ export function SelectorEmpresa({
               >
                 <Card className="transition-colors hover:border-primary">
                   <CardContent className="flex items-center gap-4 py-4">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      <Building2 className="size-5" />
-                    </div>
+                    <LogoEmpresa empresa={empresa} className="h-12 w-20" />
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{empresa.nombreComercial}</span>
