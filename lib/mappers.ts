@@ -37,6 +37,8 @@ import type {
   Tecnico,
   Ticket,
   TipoActividadLead,
+  TipoCliente,
+  Ubicacion,
   TipoConcepto,
   TipoServicio,
   Usuario,
@@ -55,11 +57,28 @@ function fecha(value: unknown): string | null {
   return String(value).slice(0, 10)
 }
 
+function mapUbicacion(row: Record<string, any>): Ubicacion {
+  return {
+    region: txt(row.region).trim(),
+    zona: txt(row.zona).trim(),
+    instalacion: txt(row.instalacion).trim(),
+    area: txt(row.area).trim(),
+  }
+}
+
+function ubicacionToDb(data: Partial<Ubicacion>, out: Record<string, any>) {
+  if (data.region !== undefined) out.region = data.region.trim()
+  if (data.zona !== undefined) out.zona = data.zona.trim()
+  if (data.instalacion !== undefined) out.instalacion = data.instalacion.trim()
+  if (data.area !== undefined) out.area = data.area.trim()
+}
+
 // DB -> App ---------------------------------------------------------------
 
 export function mapCliente(row: Record<string, any>): Cliente {
   return {
     id: row.id,
+    tipo: (row.tipo === "Gobierno" ? "Gobierno" : "Particular") as TipoCliente,
     nombre: txt(row.nombre),
     rfc: txt(row.rfc),
     contacto: txt(row.contacto),
@@ -87,6 +106,7 @@ export function mapEquipo(row: Record<string, any>): Equipo {
     fechaUltimoServicio: fecha(row.fecha_ultimo_servicio),
     fechaProximoServicio: fecha(row.fecha_proximo_servicio),
     notas: txt(row.notas),
+    ...mapUbicacion(row),
   }
 }
 
@@ -95,6 +115,9 @@ export function mapOrden(row: Record<string, any>): OrdenServicio {
     id: row.id,
     folio: txt(row.folio),
     procedencia: (row.procedencia ?? "Manual") as ProcedenciaOrden,
+    contratoId: row.contrato_id ?? null,
+    contratoPartidaId: row.contrato_partida_id ?? null,
+    ...mapUbicacion(row),
     clienteId: txt(row.cliente_id),
     equipoId: txt(row.equipo_id),
     fechaSolicitud: fecha(row.fecha_solicitud) ?? "",
@@ -358,6 +381,9 @@ export function mapEmpresa(row: Record<string, any>): Empresa {
     logoPath: row.logo_path ?? null,
     prefijoFolio: row.prefijo_folio ?? null,
     activa: row.activa ?? true,
+    representanteLegal: txt(row.representante_legal),
+    representanteCargo: txt(row.representante_cargo) || "Representante Legal",
+    giro: txt(row.giro),
   }
 }
 
@@ -373,6 +399,10 @@ export function empresaToDb(data: Partial<Empresa>): Record<string, any> {
   if (data.prefijoFolio !== undefined)
     out.prefijo_folio = data.prefijoFolio ? data.prefijoFolio.trim().toUpperCase() : null
   if (data.activa !== undefined) out.activa = data.activa
+  if (data.representanteLegal !== undefined) out.representante_legal = data.representanteLegal.trim()
+  if (data.representanteCargo !== undefined)
+    out.representante_cargo = data.representanteCargo.trim() || "Representante Legal"
+  if (data.giro !== undefined) out.giro = data.giro.trim()
   return out
 }
 
@@ -392,6 +422,7 @@ export function mapUsuario(row: Record<string, any>): Usuario {
 
 export function clienteToDb(data: Partial<Cliente>): Record<string, any> {
   const out: Record<string, any> = {}
+  if (data.tipo !== undefined) out.tipo = data.tipo
   if (data.nombre !== undefined) out.nombre = data.nombre
   if (data.rfc !== undefined) out.rfc = data.rfc
   if (data.contacto !== undefined) out.contacto = data.contacto
@@ -417,6 +448,7 @@ export function equipoToDb(data: Partial<Equipo>): Record<string, any> {
   if (data.fechaUltimoServicio !== undefined) out.fecha_ultimo_servicio = fecha(data.fechaUltimoServicio)
   if (data.fechaProximoServicio !== undefined) out.fecha_proximo_servicio = fecha(data.fechaProximoServicio)
   if (data.notas !== undefined) out.notas = data.notas
+  ubicacionToDb(data, out)
   return out
 }
 
@@ -424,6 +456,9 @@ export function ordenToDb(data: Partial<OrdenServicio>): Record<string, any> {
   const out: Record<string, any> = {}
   // Solo cuenta al crear la orden; la base la mantiene fija después.
   if (data.procedencia !== undefined) out.procedencia = data.procedencia
+  if (data.contratoId !== undefined) out.contrato_id = data.contratoId || null
+  if (data.contratoPartidaId !== undefined) out.contrato_partida_id = data.contratoPartidaId || null
+  ubicacionToDb(data, out)
   if (data.clienteId !== undefined) out.cliente_id = data.clienteId || null
   if (data.equipoId !== undefined) out.equipo_id = data.equipoId || null
   if (data.fechaSolicitud !== undefined) out.fecha_solicitud = fecha(data.fechaSolicitud)

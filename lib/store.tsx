@@ -64,6 +64,11 @@ const USUARIO_PLACEHOLDER: Usuario = {
   tecnicoId: null,
 }
 
+// Al crear una orden estos campos son opcionales: la base completa la
+// ubicación con la del equipo (o la partida) y el contrato solo aplica a
+// órdenes generadas desde un contrato.
+type CamposOpcionalesOrden = "contratoId" | "contratoPartidaId" | "region" | "zona" | "instalacion" | "area"
+
 interface StoreContextValue {
   clientes: Cliente[]
   equipos: Equipo[]
@@ -98,7 +103,8 @@ interface StoreContextValue {
 
   // Sin procedencia, la base la deduce (Ticket, Garantía o Manual).
   crearOrden: (
-    data: Omit<OrdenServicio, "id" | "folio" | "procedencia"> & { procedencia?: ProcedenciaOrden },
+    data: Omit<OrdenServicio, "id" | "folio" | "procedencia" | CamposOpcionalesOrden> &
+      Partial<Pick<OrdenServicio, CamposOpcionalesOrden>> & { procedencia?: ProcedenciaOrden },
   ) => Promise<OrdenServicio | null>
   actualizarOrden: (id: string, data: Partial<OrdenServicio>) => Promise<void>
   asignarOrdenConGarantia: (

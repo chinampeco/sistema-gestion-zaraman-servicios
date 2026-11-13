@@ -43,6 +43,9 @@ type FormEmpresa = {
   email: string
   prefijoFolio: string
   activa: boolean
+  representanteLegal: string
+  representanteCargo: string
+  giro: string
 }
 
 const VACIA: FormEmpresa = {
@@ -55,6 +58,9 @@ const VACIA: FormEmpresa = {
   email: "",
   prefijoFolio: "",
   activa: true,
+  representanteLegal: "",
+  representanteCargo: "Representante Legal",
+  giro: "",
 }
 
 // Alta y edición de las empresas (razones sociales) del sistema. Solo Administrador.
@@ -174,6 +180,9 @@ function EmpresaDialog({
           email: empresa.email,
           prefijoFolio: empresa.prefijoFolio ?? "",
           activa: empresa.activa,
+          representanteLegal: empresa.representanteLegal,
+          representanteCargo: empresa.representanteCargo,
+          giro: empresa.giro,
         }
       : VACIA,
   )
@@ -311,6 +320,20 @@ function EmpresaDialog({
               <Input id="emp-email" type="email" value={form.email} onChange={set("email")} />
             </Field>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="emp-rep">Representante legal</FieldLabel>
+              <Input id="emp-rep" value={form.representanteLegal} onChange={set("representanteLegal")} placeholder="Nombre completo como firma" />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="emp-rep-cargo">Cargo</FieldLabel>
+              <Input id="emp-rep-cargo" value={form.representanteCargo} onChange={set("representanteCargo")} />
+            </Field>
+          </div>
+          <Field>
+            <FieldLabel htmlFor="emp-giro">Giro / servicios (encabezado de formatos)</FieldLabel>
+            <Textarea id="emp-giro" rows={2} value={form.giro} onChange={set("giro")} />
+          </Field>
           {!esNueva && (
             <div className="flex items-center justify-between rounded-lg border border-border p-3">
               <div className="flex flex-col gap-0.5">

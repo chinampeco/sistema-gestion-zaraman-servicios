@@ -15,8 +15,15 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useStore } from "@/lib/store"
-import type { Cliente } from "@/lib/types"
+import { TIPOS_CLIENTE, type Cliente, type TipoCliente } from "@/lib/types"
 
 interface ClienteFormDialogProps {
   open: boolean
@@ -27,6 +34,7 @@ interface ClienteFormDialogProps {
 type FormState = Omit<Cliente, "id" | "createdAt">
 
 const emptyForm: FormState = {
+  tipo: "Particular",
   nombre: "",
   rfc: "",
   contacto: "",
@@ -50,6 +58,7 @@ export function ClienteFormDialog({
       setForm(
         cliente
           ? {
+              tipo: cliente.tipo,
               nombre: cliente.nombre,
               rfc: cliente.rfc,
               contacto: cliente.contacto,
@@ -64,7 +73,7 @@ export function ClienteFormDialog({
     }
   }, [open, cliente])
 
-  const set = (key: keyof FormState) => (value: string) =>
+  const set = (key: Exclude<keyof FormState, "tipo">) => (value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }))
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -108,6 +117,26 @@ export function ClienteFormDialog({
                   onChange={(e) => set("nombre")(e.target.value)}
                   placeholder="Industrias del Norte S.A. de C.V."
                 />
+              </Field>
+              <Field>
+                <FieldLabel>Tipo de cliente</FieldLabel>
+                <Select
+                  value={form.tipo}
+                  onValueChange={(v) =>
+                    setForm((prev) => ({ ...prev, tipo: (v as TipoCliente) ?? "Particular" }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_CLIENTE.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t === "Gobierno" ? "Gobierno (dependencia)" : "Particular"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field>
                 <FieldLabel htmlFor="rfc">RFC</FieldLabel>

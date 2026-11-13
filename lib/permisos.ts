@@ -17,6 +17,7 @@ export type ClaveModulo =
   | "inventario"
   | "tickets"
   | "cotizaciones"
+  | "contratos"
   | "ordenes"
   | "agenda"
   | "tecnicos"
@@ -37,6 +38,7 @@ export const RUTA_MODULO: Record<ClaveModulo, string> = {
   inventario: "/inventario",
   tickets: "/tickets",
   cotizaciones: "/cotizaciones",
+  contratos: "/contratos",
   ordenes: "/ordenes",
   agenda: "/agenda",
   tecnicos: "/tecnicos",
@@ -61,6 +63,7 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
     "inventario",
     "tickets",
     "cotizaciones",
+    "contratos",
     "ordenes",
     "agenda",
     "tecnicos",
@@ -80,6 +83,7 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
     "inventario",
     "tickets",
     "cotizaciones",
+    "contratos",
     "ordenes",
     "agenda",
     "tecnicos",
@@ -99,6 +103,7 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
     "inventario",
     "tickets",
     "cotizaciones",
+    "contratos",
     "ordenes",
     "agenda",
     "tecnicos",
@@ -120,6 +125,7 @@ const MODULOS_POR_ROL: Record<RolInterno, ClaveModulo[]> = {
     "inventario",
     "tickets",
     "cotizaciones",
+    "contratos",
     "ordenes",
     "agenda",
     "tecnicos",
@@ -171,6 +177,16 @@ export function puedeGestionarUsuarios(rol: RolUsuario): boolean {
 // El técnico y el rol de solo lectura no pueden reasignar.
 export function puedeReasignarOrdenes(rol: RolUsuario): boolean {
   return rol === "Administrador" || rol === "Coordinador" || rol === "Supervisor"
+}
+
+// Contratos, partidas, expediente y garantías: captura la gestión
+// (igual que en la base: puede_gestionar_operacion); solo el Administrador borra.
+export function puedeGestionarContratos(rol: RolUsuario): boolean {
+  return rol === "Administrador" || rol === "Coordinador" || rol === "Supervisor"
+}
+
+export function puedeEliminarContratos(rol: RolUsuario): boolean {
+  return rol === "Administrador"
 }
 
 // Consulta y Cliente no pueden crear/editar/eliminar (solo lectura).

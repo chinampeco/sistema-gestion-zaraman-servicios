@@ -23,6 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useStore } from "@/lib/store"
+import { tieneUbicacion } from "@/lib/ubicacion"
+import {
+  CamposUbicacion,
+  validarUbicacionRequerida,
+} from "@/components/ubicacion/campos-ubicacion"
 import { hoyISO } from "@/lib/format"
 import {
   ESTADOS_ORDEN,
@@ -41,7 +46,8 @@ interface OrdenFormDialogProps {
 }
 
 // La procedencia no se captura: la decide la base al crear la orden.
-type FormState = Omit<OrdenServicio, "id" | "folio" | "procedencia">
+// El contrato se liga al generar órdenes desde el contrato, no aquí.
+type FormState = Omit<OrdenServicio, "id" | "folio" | "procedencia" | "contratoId" | "contratoPartidaId">
 
 function emptyForm(creadoPor: string): FormState {
   return {
@@ -70,6 +76,10 @@ function emptyForm(creadoPor: string): FormState {
     creadoPor,
     ticketId: null,
     historial: [],
+    region: "",
+    zona: "",
+    instalacion: "",
+    area: "",
   }
 }
 
@@ -81,6 +91,7 @@ export function OrdenFormDialog({
   const {
     clientes,
     equipos,
+    ordenes,
     usuarioActual,
     crearOrden,
     actualizarOrden,
@@ -118,6 +129,10 @@ export function OrdenFormDialog({
             creadoPor: orden.creadoPor,
             ticketId: orden.ticketId,
             historial: orden.historial,
+            region: orden.region,
+            zona: orden.zona,
+            instalacion: orden.instalacion,
+            area: orden.area,
           }
         : emptyForm(usuarioActual.nombre),
     )
@@ -153,6 +168,21 @@ export function OrdenFormDialog({
     setForm((prev) => ({ ...prev, clienteId, equipoId: "" }))
   }
 
+  // Al elegir equipo, la orden toma su ubicación (si no se ha capturado otra).
+  const handleEquipoChange = (equipoId: string) => {
+    const eq = equipos.find((e) => e.id === equipoId)
+    setForm((prev) => ({
+      ...prev,
+      equipoId,
+      ...(eq && !tieneUbicacion(prev)
+        ? { region: eq.region, zona: eq.zona, instalacion: eq.instalacion, area: eq.area }
+        : {}),
+    }))
+  }
+
+  const esGobierno = clientes.find((c) => c.id === form.clienteId)?.tipo === "Gobierno"
+  const sugerenciasUbicacion = React.useMemo(() => [...equipos, ...ordenes], [equipos, ordenes])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.clienteId) {
@@ -166,6 +196,13 @@ export function OrdenFormDialog({
     if (!form.descripcionFalla.trim()) {
       toast.error("Describe la falla o el motivo del servicio.")
       return
+    }
+    if (esGobierno) {
+      const faltante = validarUbicacionRequerida(form)
+      if (faltante) {
+        toast.error(faltante)
+        return
+      }
     }
 
     if (orden) {
@@ -181,6 +218,10 @@ export function OrdenFormDialog({
         prioridad: form.prioridad,
         estado: form.estado,
         descripcionFalla: form.descripcionFalla,
+        region: form.region,
+        zona: form.zona,
+        instalacion: form.instalacion,
+        area: form.area,
       })
       toast.success("Orden actualizada correctamente.")
     } else {
@@ -238,7 +279,7 @@ export function OrdenFormDialog({
                 <FieldLabel>Equipo</FieldLabel>
                 <Select
                   value={form.equipoId}
-                  onValueChange={(v) => set("equipoId", (v as string) ?? "")}
+                  onValueChange={(v) => handleEquipoChange((v as string) ?? "")}
                   disabled={!form.clienteId}
                   items={equipoSelectItems}
                 >
@@ -248,6 +289,14 @@ export function OrdenFormDialog({
                   </SelectContent>
                 </Select>
               </Field>
+
+              <CamposUbicacion
+                value={form}
+                onChange={(u) => setForm((prev) => ({ ...prev, ...u }))}
+                sugerencias={sugerenciasUbicacion}
+                requerido={esGobierno}
+                descripcion="Se llena con la del equipo; ajústala si el servicio es en otro lugar."
+              />
 
               <Field>
                 <FieldLabel>Tipo de servicio</FieldLabel>

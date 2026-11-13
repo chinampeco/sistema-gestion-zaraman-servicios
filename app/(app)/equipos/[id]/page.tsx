@@ -90,7 +90,11 @@ export default function EquipoDetailPage() {
             <Info label="Cliente" value={cliente?.nombre ?? "—"} />
             <Info label="Número de serie" value={equipo.numeroSerie} mono />
             <Info label="Capacidad" value={equipo.capacidad} />
-            <Info label="Ubicación" value={equipo.ubicacion} />
+            <Info label="Domicilio / referencia" value={equipo.ubicacion || "—"} />
+            <Info label="Región" value={equipo.region || "—"} />
+            <Info label="Zona" value={equipo.zona || "—"} />
+            <Info label="Unidad / instalación" value={equipo.instalacion || "—"} />
+            <Info label="Área" value={equipo.area || "—"} />
             <Info label="Fecha de instalación" value={formatFecha(equipo.fechaInstalacion)} />
             <Info label="Último servicio" value={formatFecha(equipo.fechaUltimoServicio)} />
             <Info label="Próximo servicio" value={formatFecha(equipo.fechaProximoServicio)} />
