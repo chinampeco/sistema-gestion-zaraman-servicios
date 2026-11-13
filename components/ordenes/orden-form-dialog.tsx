@@ -40,7 +40,8 @@ interface OrdenFormDialogProps {
   orden?: OrdenServicio | null
 }
 
-type FormState = Omit<OrdenServicio, "id" | "folio">
+// La procedencia no se captura: la decide la base al crear la orden.
+type FormState = Omit<OrdenServicio, "id" | "folio" | "procedencia">
 
 function emptyForm(creadoPor: string): FormState {
   return {

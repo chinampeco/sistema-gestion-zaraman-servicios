@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { UsuariosManager } from "@/components/configuracion/usuarios-manager"
+import { EmpresasManager } from "@/components/configuracion/empresas-manager"
 import { useStore } from "@/lib/store"
 import { createClient } from "@/lib/supabase/client"
 import { iniciales } from "@/lib/format"
@@ -35,7 +36,7 @@ import { puedeGestionarUsuarios } from "@/lib/permisos"
 import { toast } from "sonner"
 
 export default function ConfiguracionPage() {
-  const { usuarioActual } = useStore()
+  const { usuarioActual, empresaActiva } = useStore()
   const esAdmin = puedeGestionarUsuarios(usuarioActual.rol)
   const esSupervisor = usuarioActual.rol === "Supervisor"
 
@@ -43,8 +44,6 @@ export default function ConfiguracionPage() {
   const [email, setEmail] = React.useState("")
   const [guardando, setGuardando] = React.useState(false)
 
-  const [nombreEmpresa, setNombreEmpresa] = React.useState("ZARAMAN SA de CV")
-  const [prefijoFolio, setPrefijoFolio] = React.useState("OS")
   const [notifCorreo, setNotifCorreo] = React.useState(true)
   const [recordatorios, setRecordatorios] = React.useState(true)
 
@@ -82,6 +81,7 @@ export default function ConfiguracionPage() {
         <TabsList>
           <TabsTrigger value="perfil">Perfil</TabsTrigger>
           <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
+          {esAdmin && <TabsTrigger value="empresas">Empresas</TabsTrigger>}
           <TabsTrigger value="general">General</TabsTrigger>
         </TabsList>
 
@@ -151,7 +151,7 @@ export default function ConfiguracionPage() {
               <CardDescription>
                 {esAdmin
                   ? "Crea y administra las cuentas de personal con acceso al panel."
-                  : "Personas con acceso a ZARAMAN Servicios."}
+                  : `Personas con acceso a ${empresaActiva?.nombreComercial ?? "la empresa"}.`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -159,6 +159,24 @@ export default function ConfiguracionPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Empresas */}
+        {esAdmin && (
+          <TabsContent value="empresas">
+            <Card>
+              <CardHeader>
+                <CardTitle>Empresas</CardTitle>
+                <CardDescription>
+                  Razones sociales que operan en el sistema. Cada una tiene sus propios datos y
+                  folios. El acceso de cada usuario se asigna en la pestaña Usuarios.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <EmpresasManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         {/* General */}
         <TabsContent value="general">
@@ -170,7 +188,7 @@ export default function ConfiguracionPage() {
               </CardDescription>
               {esSupervisor && (
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                  Solo visualización para Supervisores. El nombre de la empresa, el prefijo de folio y las preferencias generales no pueden modificarse desde este perfil.
+                  Solo visualización para Supervisores. Las preferencias generales no pueden modificarse desde este perfil.
                 </div>
               )}
             </CardHeader>
@@ -178,26 +196,26 @@ export default function ConfiguracionPage() {
               <FieldGroup>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
-                    <FieldLabel htmlFor="empresa">Nombre de la empresa</FieldLabel>
-                    <Input
-                      id="empresa"
-                      value={nombreEmpresa}
-                      onChange={(e) => setNombreEmpresa(e.target.value)}
-                      disabled={esSupervisor}
-                      readOnly={esSupervisor}
-                    />
+                    <FieldLabel htmlFor="empresa">Empresa en uso</FieldLabel>
+                    <Input id="empresa" value={empresaActiva?.razonSocial ?? ""} readOnly disabled />
+                    <FieldDescription>RFC {empresaActiva?.rfc || "sin registrar"}</FieldDescription>
                   </Field>
                   <Field>
-                    <FieldLabel htmlFor="prefijo">Prefijo de folio</FieldLabel>
+                    <FieldLabel htmlFor="prefijo">Formato de folios</FieldLabel>
                     <Input
                       id="prefijo"
-                      value={prefijoFolio}
-                      onChange={(e) => setPrefijoFolio(e.target.value)}
-                      disabled={esSupervisor}
-                      readOnly={esSupervisor}
+                      value={
+                        empresaActiva?.prefijoFolio
+                          ? `${empresaActiva.prefijoFolio}-OS-000001`
+                          : "OS-000001"
+                      }
+                      readOnly
+                      disabled
                     />
                     <FieldDescription>
-                      Ejemplo: {prefijoFolio || "OS"}-000001
+                      {esAdmin
+                        ? "Los datos de cada empresa se editan en la pestaña Empresas."
+                        : "Cada empresa lleva su propia numeración."}
                     </FieldDescription>
                   </Field>
                 </div>

@@ -6,6 +6,7 @@ import type {
   Cliente,
   ConceptoCotizacion,
   Cotizacion,
+  Empresa,
   Equipo,
   EstadoCotizacion,
   EstadoEquipo,
@@ -27,6 +28,7 @@ import type {
   MetodoPago,
   OrdenServicio,
   Pago,
+  ProcedenciaOrden,
   Prioridad,
   PrioridadLead,
   PrioridadTicket,
@@ -92,6 +94,7 @@ export function mapOrden(row: Record<string, any>): OrdenServicio {
   return {
     id: row.id,
     folio: txt(row.folio),
+    procedencia: (row.procedencia ?? "Manual") as ProcedenciaOrden,
     clienteId: txt(row.cliente_id),
     equipoId: txt(row.equipo_id),
     fechaSolicitud: fecha(row.fecha_solicitud) ?? "",
@@ -342,6 +345,37 @@ export function mapLeadActividad(row: Record<string, any>): LeadActividad {
   }
 }
 
+export function mapEmpresa(row: Record<string, any>): Empresa {
+  return {
+    id: row.id,
+    clave: txt(row.clave),
+    nombreComercial: txt(row.nombre_comercial),
+    razonSocial: txt(row.razon_social),
+    rfc: txt(row.rfc),
+    domicilio: txt(row.domicilio),
+    telefono: txt(row.telefono),
+    email: txt(row.email),
+    logoPath: row.logo_path ?? null,
+    prefijoFolio: row.prefijo_folio ?? null,
+    activa: row.activa ?? true,
+  }
+}
+
+export function empresaToDb(data: Partial<Empresa>): Record<string, any> {
+  const out: Record<string, any> = {}
+  if (data.clave !== undefined) out.clave = data.clave.trim().toUpperCase()
+  if (data.nombreComercial !== undefined) out.nombre_comercial = data.nombreComercial.trim()
+  if (data.razonSocial !== undefined) out.razon_social = data.razonSocial.trim()
+  if (data.rfc !== undefined) out.rfc = data.rfc.trim().toUpperCase() || null
+  if (data.domicilio !== undefined) out.domicilio = data.domicilio.trim() || null
+  if (data.telefono !== undefined) out.telefono = data.telefono.trim() || null
+  if (data.email !== undefined) out.email = data.email.trim().toLowerCase() || null
+  if (data.prefijoFolio !== undefined)
+    out.prefijo_folio = data.prefijoFolio ? data.prefijoFolio.trim().toUpperCase() : null
+  if (data.activa !== undefined) out.activa = data.activa
+  return out
+}
+
 export function mapUsuario(row: Record<string, any>): Usuario {
   return {
     id: row.id,
@@ -388,6 +422,8 @@ export function equipoToDb(data: Partial<Equipo>): Record<string, any> {
 
 export function ordenToDb(data: Partial<OrdenServicio>): Record<string, any> {
   const out: Record<string, any> = {}
+  // Solo cuenta al crear la orden; la base la mantiene fija después.
+  if (data.procedencia !== undefined) out.procedencia = data.procedencia
   if (data.clienteId !== undefined) out.cliente_id = data.clienteId || null
   if (data.equipoId !== undefined) out.equipo_id = data.equipoId || null
   if (data.fechaSolicitud !== undefined) out.fecha_solicitud = fecha(data.fechaSolicitud)

@@ -37,6 +37,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useStore } from "@/lib/store"
+import { LogoEmpresa } from "@/components/empresas/logo-empresa"
 import { type ClaveModulo, puedeVerModulo } from "@/lib/permisos"
 
 type NavItem = {
@@ -81,7 +82,7 @@ function isActivePath(pathname: string, href: string): boolean {
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const { usuarioActual } = useStore()
+  const { usuarioActual, empresaActiva } = useStore()
   const { isMobile, setOpenMobile } = useSidebar()
 
   function handleNavigate() {
@@ -114,15 +115,19 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2.5 px-1 py-2">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            <Factory className="size-5" />
-          </div>
+          {empresaActiva?.logoPath ? (
+            <LogoEmpresa empresa={empresaActiva} className="h-9 w-14" />
+          ) : (
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+              <Factory className="size-5" />
+            </div>
+          )}
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-semibold tracking-wide">
-              ZARAMAN
+              {empresaActiva?.nombreComercial ?? "ZARAMAN"}
             </span>
-            <span className="text-xs text-sidebar-foreground/70">
-              Servicios Industriales
+            <span className="line-clamp-1 text-xs text-sidebar-foreground/70">
+              {empresaActiva?.razonSocial ?? "Servicios Industriales"}
             </span>
           </div>
         </div>

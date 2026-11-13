@@ -19,6 +19,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Spinner } from "@/components/ui/spinner"
+import { EmblemaPlataforma, MarcaPlataforma } from "@/components/marca/marca-plataforma"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -43,28 +44,52 @@ export default function LoginPage() {
       setCargando(false)
       return
     }
-    router.push("/")
+    // Después de iniciar sesión se elige la empresa (los clientes pasan directo al portal).
+    router.push("/seleccionar-empresa")
     router.refresh()
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
-      <div className="flex w-full max-w-sm flex-col gap-6">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <img
-            src="/zaraman-logo.svg"
-            alt="ZARAMAN S.A. de C.V."
-            className="h-auto w-full max-w-[260px] object-contain"
-          />
-          <p className="text-sm text-muted-foreground">
-            Sistema de gestión de servicios técnicos industriales
+    <div className="grid min-h-svh lg:grid-cols-2">
+      {/* Panel de marca (solo en pantallas grandes) */}
+      {/* El panel conserva el azul corporativo también en modo oscuro. */}
+      <aside
+        className="relative hidden flex-col justify-between overflow-hidden bg-primary p-10 text-primary-foreground lg:flex"
+        style={{ "--primary": "oklch(0.47 0.15 256)", "--primary-foreground": "oklch(0.99 0 0)" } as React.CSSProperties}
+      >
+        <MarcaPlataforma tamano="lg" variante="claro" />
+        <div className="relative z-10 flex max-w-md flex-col gap-4">
+          <h2 className="text-3xl font-semibold leading-tight text-balance">
+            Una sola plataforma para todas las empresas del grupo.
+          </h2>
+          <p className="text-pretty text-primary-foreground/80">
+            Órdenes de servicio, cotizaciones, inventario, facturación y contratos de cada razón
+            social, con su información separada y protegida.
           </p>
         </div>
+        <p className="relative z-10 text-xs text-primary-foreground/60">
+          © {new Date().getFullYear()} Plataforma Empresarial
+        </p>
+        <div aria-hidden className="pointer-events-none absolute -right-28 -bottom-28">
+          <EmblemaPlataforma className="size-[26rem] text-primary-foreground/10 [&_g]:fill-primary" />
+        </div>
+      </aside>
+
+      <main className="flex items-center justify-center bg-muted/40 p-4 sm:p-8">
+        <div className="flex w-full max-w-sm flex-col gap-6">
+          <div className="flex flex-col items-center gap-3 text-center lg:hidden">
+            <MarcaPlataforma />
+            <p className="text-sm text-muted-foreground">
+              Acceso para el personal de las empresas del grupo
+            </p>
+          </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Iniciar sesión</CardTitle>
-            <CardDescription>Ingresa con tu cuenta corporativa.</CardDescription>
+            <CardDescription>
+              Ingresa con tu cuenta; después eliges la empresa con la que vas a trabajar.
+            </CardDescription>
           </CardHeader>
           <form onSubmit={onSubmit}>
             <CardContent className="flex flex-col gap-4">
@@ -84,7 +109,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="usuario@zaraman.mx"
+                    placeholder="usuario@empresa.com"
                   />
                 </Field>
                 <Field>
@@ -125,7 +150,8 @@ export default function LoginPage() {
             </CardFooter>
           </form>
         </Card>
-      </div>
+        </div>
+      </main>
     </div>
   )
 }

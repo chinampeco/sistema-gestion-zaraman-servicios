@@ -44,7 +44,8 @@ import {
 import { iniciales } from "@/lib/format"
 import { DESCRIPCION_ROL, puedeGestionarUsuarios } from "@/lib/permisos"
 import { useStore } from "@/lib/store"
-import { ROLES_USUARIO, type RolUsuario, type Usuario } from "@/lib/types"
+import { createClient } from "@/lib/supabase/client"
+import { ROLES_USUARIO, type Empresa, type RolUsuario, type Usuario } from "@/lib/types"
 
 const ROLES_INTERNOS = ROLES_USUARIO.filter((r) => r !== "Cliente") as RolUsuario[]
 
@@ -54,6 +55,13 @@ export function UsuariosManager() {
 
   const [crearAbierto, setCrearAbierto] = React.useState(false)
   const [editar, setEditar] = React.useState<Usuario | null>(null)
+  const { membresias, recargarMembresias } = useMembresias(esAdmin)
+  const { todasEmpresas } = useStore()
+  const claveEmpresa = (id: string) => todasEmpresas.find((e) => e.id === id)?.clave ?? "—"
+
+  async function recargarTodo() {
+    await Promise.all([recargar(), recargarMembresias()])
+  }
 
   // Solo el personal interno se administra aquí; los clientes van en su ficha.
   const internos = usuarios.filter((u) => u.rol !== "Cliente")
@@ -76,6 +84,7 @@ export function UsuariosManager() {
               <TableHead>Usuario</TableHead>
               <TableHead className="hidden sm:table-cell">Correo</TableHead>
               <TableHead>Rol</TableHead>
+              {esAdmin && <TableHead className="hidden md:table-cell">Empresas</TableHead>}
               <TableHead className="text-center">Estado</TableHead>
               {esAdmin && <TableHead className="w-10" />}
             </TableRow>
@@ -97,6 +106,21 @@ export function UsuariosManager() {
                   {u.email}
                 </TableCell>
                 <TableCell>{u.rol}</TableCell>
+                {esAdmin && (
+                  <TableCell className="hidden md:table-cell">
+                    <div className="flex flex-wrap gap-1">
+                      {(membresias[u.id] ?? []).length === 0 ? (
+                        <span className="text-xs text-muted-foreground">Sin empresas</span>
+                      ) : (
+                        (membresias[u.id] ?? []).map((id) => (
+                          <Badge key={id} variant="outline">
+                            {claveEmpresa(id)}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  </TableCell>
+                )}
                 <TableCell className="text-center">
                   <Badge variant={u.activo ? "success" : "secondary"}>
                     {u.activo ? "Activo" : "Inactivo"}
@@ -126,7 +150,7 @@ export function UsuariosManager() {
             {internos.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={esAdmin ? 5 : 4}
+                  colSpan={esAdmin ? 6 : 4}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No hay usuarios internos registrados.
@@ -141,16 +165,17 @@ export function UsuariosManager() {
         <CrearUsuarioDialog
           abierto={crearAbierto}
           onOpenChange={setCrearAbierto}
-          onGuardado={recargar}
+          onGuardado={recargarTodo}
         />
       )}
 
       {esAdmin && editar && (
         <EditarUsuarioDialog
           usuario={editar}
+          empresasIniciales={membresias[editar.id] ?? []}
           esUnoMismo={editar.id === usuarioActual.id}
           onClose={() => setEditar(null)}
-          onGuardado={recargar}
+          onGuardado={recargarTodo}
         />
       )}
     </div>
@@ -189,6 +214,68 @@ function RolSelect({
   )
 }
 
+// Empresas a las que entra cada usuario (solo el Administrador puede leerlas todas).
+function useMembresias(habilitado: boolean) {
+  const [membresias, setMembresias] = React.useState<Record<string, string[]>>({})
+
+  const recargarMembresias = React.useCallback(async () => {
+    if (!habilitado) return
+    const supabase = createClient()
+    const { data } = await supabase
+      .from("usuario_empresas")
+      .select("usuario_id, empresa_id")
+      .eq("activo", true)
+    const mapa: Record<string, string[]> = {}
+    for (const fila of data ?? []) {
+      ;(mapa[fila.usuario_id] ??= []).push(fila.empresa_id)
+    }
+    setMembresias(mapa)
+  }, [habilitado])
+
+  React.useEffect(() => {
+    void recargarMembresias()
+  }, [recargarMembresias])
+
+  return { membresias, recargarMembresias }
+}
+
+function EmpresasChecklist({
+  empresas,
+  seleccion,
+  onChange,
+}: {
+  empresas: Empresa[]
+  seleccion: string[]
+  onChange: (ids: string[]) => void
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+      {empresas.map((e) => {
+        const marcada = seleccion.includes(e.id)
+        return (
+          <label key={e.id} className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 accent-primary"
+              checked={marcada}
+              onChange={() =>
+                onChange(marcada ? seleccion.filter((id) => id !== e.id) : [...seleccion, e.id])
+              }
+            />
+            <span className="flex flex-col">
+              <span className="text-sm font-medium">{e.nombreComercial}</span>
+              <span className="text-xs text-muted-foreground">{e.razonSocial}</span>
+            </span>
+          </label>
+        )
+      })}
+      {empresas.length === 0 && (
+        <span className="text-xs text-muted-foreground">No hay empresas activas.</span>
+      )}
+    </div>
+  )
+}
+
 function CrearUsuarioDialog({
   abierto,
   onOpenChange,
@@ -198,7 +285,9 @@ function CrearUsuarioDialog({
   onOpenChange: (v: boolean) => void
   onGuardado: () => Promise<void>
 }) {
-  const { tecnicos, usuarios } = useStore()
+  const { tecnicos, usuarios, todasEmpresas, empresaActiva } = useStore()
+  const empresasActivas = todasEmpresas.filter((e) => e.activa)
+  const [empresas, setEmpresas] = React.useState<string[]>([])
   const [nombre, setNombre] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
@@ -225,8 +314,10 @@ function CrearUsuarioDialog({
       setRol("Coordinador")
       setTecnicoId("")
       setVerPassword(false)
+      // Por omisión, la empresa con la que se está trabajando.
+      setEmpresas(empresaActiva ? [empresaActiva.id] : [])
     }
-  }, [abierto])
+  }, [abierto, empresaActiva])
 
   async function guardar() {
     if (!nombre.trim() || !email.trim()) {
@@ -235,6 +326,10 @@ function CrearUsuarioDialog({
     }
     if (rol === "Técnico" && !tecnicoId) {
       toast.error("Selecciona la ficha de técnico a la que se vincula la cuenta.")
+      return
+    }
+    if (empresas.length === 0) {
+      toast.error("Selecciona al menos una empresa.")
       return
     }
     if (password.length < 6) {
@@ -249,7 +344,7 @@ function CrearUsuarioDialog({
     const res = await fetch("/api/usuarios", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre, email, password, rol, tecnicoId: tecnicoId || null }),
+      body: JSON.stringify({ nombre, email, password, rol, tecnicoId: tecnicoId || null, empresas }),
     })
     const data = await res.json().catch(() => null)
     setGuardando(false)
@@ -325,6 +420,10 @@ function CrearUsuarioDialog({
             </Field>
           )}
           <Field>
+            <FieldLabel>Empresas a las que tendrá acceso</FieldLabel>
+            <EmpresasChecklist empresas={empresasActivas} seleccion={empresas} onChange={setEmpresas} />
+          </Field>
+          <Field>
             <FieldLabel htmlFor="nuevo-password">Contraseña</FieldLabel>
             <div className="relative">
               <Input
@@ -370,16 +469,20 @@ function CrearUsuarioDialog({
 
 function EditarUsuarioDialog({
   usuario,
+  empresasIniciales,
   esUnoMismo,
   onClose,
   onGuardado,
 }: {
   usuario: Usuario
+  empresasIniciales: string[]
   esUnoMismo: boolean
   onClose: () => void
   onGuardado: () => Promise<void>
 }) {
-  const { tecnicos, usuarios } = useStore()
+  const { tecnicos, usuarios, todasEmpresas } = useStore()
+  const empresasActivas = todasEmpresas.filter((e) => e.activa)
+  const [empresas, setEmpresas] = React.useState<string[]>(empresasIniciales)
   const [nombre, setNombre] = React.useState(usuario.nombre)
   const [rol, setRol] = React.useState<RolUsuario>(usuario.rol)
   const [activo, setActivo] = React.useState(usuario.activo)
@@ -407,6 +510,10 @@ function EditarUsuarioDialog({
       toast.error("Selecciona la ficha de técnico a la que se vincula la cuenta.")
       return
     }
+    if (empresas.length === 0) {
+      toast.error("Selecciona al menos una empresa.")
+      return
+    }
     if (cambiarPass) {
       if (password.length < 6) {
         toast.error("La contraseña debe tener al menos 6 caracteres.")
@@ -424,6 +531,7 @@ function EditarUsuarioDialog({
       rol,
       activo,
       tecnicoId: rol === "Técnico" ? tecnicoId || null : null,
+      empresas,
     }
     if (cambiarPass) body.password = password
     const res = await fetch("/api/usuarios", {
@@ -494,6 +602,11 @@ function EditarUsuarioDialog({
               </p>
             </Field>
           )}
+
+          <Field>
+            <FieldLabel>Empresas a las que tiene acceso</FieldLabel>
+            <EmpresasChecklist empresas={empresasActivas} seleccion={empresas} onChange={setEmpresas} />
+          </Field>
 
           <div className="flex items-center justify-between rounded-lg border border-border p-3">
             <div className="flex flex-col gap-0.5">

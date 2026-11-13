@@ -135,9 +135,21 @@ export interface EvidenciaOrden {
   fecha: string
 }
 
+// De dónde salió la orden. Se fija al crearla y no cambia.
+export type ProcedenciaOrden = "Manual" | "Ticket" | "Cotización" | "Garantía" | "Contrato"
+
+export const PROCEDENCIAS_ORDEN: ProcedenciaOrden[] = [
+  "Manual",
+  "Ticket",
+  "Cotización",
+  "Garantía",
+  "Contrato",
+]
+
 export interface OrdenServicio {
   id: string
   folio: string
+  procedencia: ProcedenciaOrden
   clienteId: string
   equipoId: string
   fechaSolicitud: string
@@ -279,6 +291,22 @@ export interface Tecnico {
   email: string
   telefono: string
   activo: boolean
+}
+
+// Razón social que opera en el sistema. Cada registro de negocio pertenece a una.
+export interface Empresa {
+  id: string
+  clave: string
+  nombreComercial: string
+  razonSocial: string
+  rfc: string
+  domicilio: string
+  telefono: string
+  email: string
+  // Ruta pública del logo (p. ej. /empresas/toltecatl-logo.jpg); null si no tiene.
+  logoPath: string | null
+  prefijoFolio: string | null
+  activa: boolean
 }
 
 export interface Usuario {

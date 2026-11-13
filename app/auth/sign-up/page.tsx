@@ -3,7 +3,6 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Wrench } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -19,6 +18,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Spinner } from "@/components/ui/spinner"
+import { MarcaPlataforma } from "@/components/marca/marca-plataforma"
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -57,12 +57,9 @@ export default function SignUpPage() {
     <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
       <div className="flex w-full max-w-sm flex-col gap-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <div className="flex size-11 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Wrench className="size-6" />
-          </div>
-          <h1 className="text-xl font-semibold tracking-tight">ZARAMAN SERVICIOS</h1>
+          <MarcaPlataforma />
           <p className="text-sm text-muted-foreground">
-            Sistema de gestión de servicios técnicos industriales
+            Acceso para el personal de las empresas del grupo
           </p>
         </div>
 
