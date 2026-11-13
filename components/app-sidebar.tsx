@@ -20,6 +20,7 @@ import {
   UserPlus,
   MessageCircle,
   Boxes,
+  FileSignature,
 } from "lucide-react"
 
 import {
@@ -54,6 +55,7 @@ const navPrincipal: NavItem[] = [
   { title: "Inventario", href: "/inventario", icon: Boxes, modulo: "inventario" },
   { title: "Tickets", href: "/tickets", icon: Ticket, modulo: "tickets" },
   { title: "Cotizaciones", href: "/cotizaciones", icon: FileText, modulo: "cotizaciones" },
+  { title: "Contratos", href: "/contratos", icon: FileSignature, modulo: "contratos" },
   { title: "Órdenes de servicio", href: "/ordenes", icon: ClipboardList, modulo: "ordenes" },
   { title: "Agenda", href: "/agenda", icon: CalendarDays, modulo: "agenda" },
   { title: "Técnicos", href: "/tecnicos", icon: HardHat, modulo: "tecnicos" },

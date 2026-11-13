@@ -24,6 +24,10 @@ import {
 } from "@/components/ui/select"
 import { useStore } from "@/lib/store"
 import { ESTADOS_EQUIPO, type Equipo, type EstadoEquipo } from "@/lib/types"
+import {
+  CamposUbicacion,
+  validarUbicacionRequerida,
+} from "@/components/ubicacion/campos-ubicacion"
 
 interface EquipoFormDialogProps {
   open: boolean
@@ -48,6 +52,10 @@ function emptyForm(clienteId = ""): FormState {
     fechaUltimoServicio: null,
     fechaProximoServicio: null,
     notas: "",
+    region: "",
+    zona: "",
+    instalacion: "",
+    area: "",
   }
 }
 
@@ -57,7 +65,7 @@ export function EquipoFormDialog({
   equipo,
   clienteIdPredeterminado,
 }: EquipoFormDialogProps) {
-  const { clientes, crearEquipo, actualizarEquipo } = useStore()
+  const { clientes, equipos, ordenes, crearEquipo, actualizarEquipo } = useStore()
   const [form, setForm] = React.useState<FormState>(emptyForm())
 
   React.useEffect(() => {
@@ -65,6 +73,9 @@ export function EquipoFormDialog({
       setForm(equipo ? { ...equipo } : emptyForm(clienteIdPredeterminado))
     }
   }, [open, equipo, clienteIdPredeterminado])
+
+  const esGobierno = clientes.find((c) => c.id === form.clienteId)?.tipo === "Gobierno"
+  const sugerenciasUbicacion = React.useMemo(() => [...equipos, ...ordenes], [equipos, ordenes])
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -78,6 +89,13 @@ export function EquipoFormDialog({
     if (!form.tipo.trim()) {
       toast.error("El tipo de equipo es obligatorio.")
       return
+    }
+    if (esGobierno) {
+      const faltante = validarUbicacionRequerida(form)
+      if (faltante) {
+        toast.error(faltante)
+        return
+      }
     }
     const payload: FormState = {
       ...form,
@@ -173,7 +191,7 @@ export function EquipoFormDialog({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="ubicacion">Ubicación</FieldLabel>
+                <FieldLabel htmlFor="ubicacion">Domicilio / referencia</FieldLabel>
                 <Input
                   id="ubicacion"
                   value={form.ubicacion}
@@ -181,6 +199,13 @@ export function EquipoFormDialog({
                   placeholder="Planta 1, Área de producción…"
                 />
               </Field>
+              <CamposUbicacion
+                value={form}
+                onChange={(u) => setForm((prev) => ({ ...prev, ...u }))}
+                sugerencias={sugerenciasUbicacion}
+                requerido={esGobierno}
+                descripcion="Según el contrato o la ficha técnica. Las órdenes de este equipo toman esta ubicación."
+              />
               <Field>
                 <FieldLabel>Estado</FieldLabel>
                 <Select

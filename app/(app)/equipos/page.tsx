@@ -33,7 +33,9 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { FiltrosUbicacion } from "@/components/ubicacion/filtros-ubicacion"
 import { useStore } from "@/lib/store"
+import { coincideUbicacion, resumenUbicacion, UBICACION_VACIA } from "@/lib/ubicacion"
 import { formatFecha } from "@/lib/format"
 import { ESTADOS_EQUIPO, type Equipo } from "@/lib/types"
 
@@ -41,6 +43,7 @@ export default function EquiposPage() {
   const { equipos, clientes, eliminarEquipo } = useStore()
   const [query, setQuery] = React.useState("")
   const [estadoFiltro, setEstadoFiltro] = React.useState<string>("todos")
+  const [filtroUbicacion, setFiltroUbicacion] = React.useState(UBICACION_VACIA)
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Equipo | null>(null)
   const [deleting, setDeleting] = React.useState<Equipo | null>(null)
@@ -55,9 +58,10 @@ export default function EquiposPage() {
       e.marca.toLowerCase().includes(q) ||
       e.modelo.toLowerCase().includes(q) ||
       e.numeroSerie.toLowerCase().includes(q) ||
+      resumenUbicacion(e).toLowerCase().includes(q) ||
       nombreCliente(e.clienteId).toLowerCase().includes(q)
     const coincideEstado = estadoFiltro === "todos" || e.estado === estadoFiltro
-    return coincide && coincideEstado
+    return coincide && coincideEstado && coincideUbicacion(e, filtroUbicacion)
   })
 
   const openNuevo = () => {
@@ -88,7 +92,7 @@ export default function EquiposPage() {
             <div className="relative flex-1 sm:max-w-sm">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por tipo, marca, serie o cliente…"
+                placeholder="Buscar por tipo, marca, serie, cliente o ubicación…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="pl-8"
@@ -108,6 +112,7 @@ export default function EquiposPage() {
               </SelectContent>
             </Select>
           </div>
+          <FiltrosUbicacion items={equipos} value={filtroUbicacion} onChange={setFiltroUbicacion} />
 
           {filtrados.length === 0 ? (
             <Empty>
@@ -128,6 +133,7 @@ export default function EquiposPage() {
                   <TableRow>
                     <TableHead>Equipo</TableHead>
                     <TableHead className="hidden lg:table-cell">Cliente</TableHead>
+                    <TableHead className="hidden md:table-cell">Ubicación</TableHead>
                     <TableHead className="hidden md:table-cell">No. de serie</TableHead>
                     <TableHead className="hidden xl:table-cell">Próximo servicio</TableHead>
                     <TableHead>Estado</TableHead>
@@ -150,6 +156,9 @@ export default function EquiposPage() {
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         {nombreCliente(e.clienteId)}
+                      </TableCell>
+                      <TableCell className="hidden max-w-64 text-xs text-muted-foreground md:table-cell">
+                        {resumenUbicacion(e) || "—"}
                       </TableCell>
                       <TableCell className="hidden font-mono text-xs md:table-cell">
                         {e.numeroSerie}

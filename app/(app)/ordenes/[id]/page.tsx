@@ -16,6 +16,8 @@ import { GarantiaOrden } from "@/components/ordenes/garantia-orden"
 import { EstadoOrdenBadge, PrioridadBadge } from "@/components/status-badges"
 import { Badge } from "@/components/ui/badge"
 import { ProcedenciaBadge } from "@/components/ordenes/procedencia-badge"
+import { tieneUbicacion } from "@/lib/ubicacion"
+import { CAMPOS_UBICACION } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -140,6 +142,21 @@ export default function OrdenDetailPage() {
               <Dato label="Equipo">
                 {equipo ? <Link href={`/equipos/${equipo.id}`} className="text-primary hover:underline">{equipo.tipo} · {equipo.marca} {equipo.modelo}</Link> : "—"}
               </Dato>
+              {tieneUbicacion(orden) ? (
+                <Dato label="Ubicación">
+                  {CAMPOS_UBICACION.filter(({ clave }) => orden[clave]).map(({ clave, etiqueta }) => (
+                    <span key={clave} className="block">
+                      <span className="text-xs text-muted-foreground">{etiqueta}: </span>
+                      {orden[clave]}
+                    </span>
+                  ))}
+                </Dato>
+              ) : null}
+              {orden.contratoId && usuarioActual.rol !== "Técnico" && usuarioActual.rol !== "Cliente" ? (
+                <Dato label="Contrato">
+                  <Link href={`/contratos/${orden.contratoId}`} className="text-primary hover:underline">Ver contrato</Link>
+                </Dato>
+              ) : null}
               <Dato label="Técnico responsable">
                 {tecnico?.nombre ?? "Sin asignar"}
                 {tecnico?.zona ? <span className="block text-xs text-muted-foreground">Zona: {tecnico.zona}</span> : null}

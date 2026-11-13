@@ -21,12 +21,15 @@ import { puedeReasignarOrdenes } from "@/lib/permisos"
 import { formatFecha } from "@/lib/format"
 import { ESTADOS_ORDEN, PROCEDENCIAS_ORDEN, type OrdenServicio } from "@/lib/types"
 import { ProcedenciaBadge } from "@/components/ordenes/procedencia-badge"
+import { FiltrosUbicacion } from "@/components/ubicacion/filtros-ubicacion"
+import { coincideUbicacion, resumenUbicacion, UBICACION_VACIA } from "@/lib/ubicacion"
 
 export default function OrdenesPage() {
   const { ordenes, clientes, equipos, tecnicos, usuarioActual, eliminarOrden } = useStore()
   const [query, setQuery] = React.useState("")
   const [estadoFiltro, setEstadoFiltro] = React.useState<string>("todos")
   const [procedenciaFiltro, setProcedenciaFiltro] = React.useState<string>("todas")
+  const [filtroUbicacion, setFiltroUbicacion] = React.useState(UBICACION_VACIA)
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<OrdenServicio | null>(null)
   const [deleting, setDeleting] = React.useState<OrdenServicio | null>(null)
@@ -43,10 +46,10 @@ export default function OrdenesPage() {
   const filtradas = ordenes
     .filter((o) => {
       const q = query.toLowerCase()
-      const coincide = o.folio.toLowerCase().includes(q) || nombreCliente(o.clienteId).toLowerCase().includes(q) || nombreEquipo(o.equipoId).toLowerCase().includes(q) || nombreTecnico(o.tecnicoId).toLowerCase().includes(q) || o.tipoServicio.toLowerCase().includes(q)
+      const coincide = o.folio.toLowerCase().includes(q) || nombreCliente(o.clienteId).toLowerCase().includes(q) || nombreEquipo(o.equipoId).toLowerCase().includes(q) || nombreTecnico(o.tecnicoId).toLowerCase().includes(q) || o.tipoServicio.toLowerCase().includes(q) || resumenUbicacion(o).toLowerCase().includes(q)
       const coincideEstado = estadoFiltro === "todos" || o.estado === estadoFiltro
       const coincideProcedencia = procedenciaFiltro === "todas" || o.procedencia === procedenciaFiltro
-      return coincide && coincideEstado && coincideProcedencia
+      return coincide && coincideEstado && coincideProcedencia && coincideUbicacion(o, filtroUbicacion)
     })
     .sort((a, b) => b.folio.localeCompare(a.folio))
 
@@ -76,7 +79,7 @@ export default function OrdenesPage() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1 sm:max-w-sm">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar por folio, cliente o tipo…" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
+              <Input placeholder="Buscar por folio, cliente, tipo o ubicación…" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
             </div>
             <Select value={estadoFiltro} onValueChange={(v) => setEstadoFiltro(v as string)}>
               <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Estado" /></SelectTrigger>
@@ -93,6 +96,7 @@ export default function OrdenesPage() {
               </SelectContent>
             </Select>
           </div>
+          <FiltrosUbicacion items={ordenes} value={filtroUbicacion} onChange={setFiltroUbicacion} />
 
           {filtradas.length === 0 ? (
             <Empty>
@@ -116,6 +120,7 @@ export default function OrdenesPage() {
                         <div className="flex flex-col gap-0.5">
                           <span className="text-sm font-medium text-foreground">{nombreCliente(o.clienteId)}</span>
                           <span className="text-xs text-muted-foreground">{nombreEquipo(o.equipoId)}</span>
+                          {resumenUbicacion(o) ? <span className="text-xs text-muted-foreground">{resumenUbicacion(o)}</span> : null}
                         </div>
                         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                           <span>{o.tipoServicio}</span>
@@ -154,7 +159,10 @@ export default function OrdenesPage() {
                             </div>
                           </TableCell>
                           <TableCell className="max-w-40 truncate">{nombreCliente(o.clienteId)}</TableCell>
-                          <TableCell className="hidden md:table-cell">{nombreEquipo(o.equipoId)}</TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {nombreEquipo(o.equipoId)}
+                            {resumenUbicacion(o) ? <div className="max-w-64 text-xs text-muted-foreground">{resumenUbicacion(o)}</div> : null}
+                          </TableCell>
                           <TableCell className="hidden lg:table-cell">{nombreTecnico(o.tecnicoId)}</TableCell>
                           <TableCell className="hidden sm:table-cell">{formatFecha(o.fechaProgramada ?? o.fechaSolicitud)}</TableCell>
                           <TableCell><EstadoOrdenBadge estado={o.estado} /></TableCell>

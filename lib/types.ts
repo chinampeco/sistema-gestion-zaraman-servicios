@@ -83,8 +83,27 @@ export type RolUsuario =
   | "Consulta"
   | "Cliente"
 
+export type TipoCliente = "Particular" | "Gobierno"
+export const TIPOS_CLIENTE: TipoCliente[] = ["Particular", "Gobierno"]
+
+// Ubicación para dependencias de gobierno (SEDENA, CFE, PEMEX…): región, zona,
+// instalación (unidad) y área. Texto libre; se filtra por coincidencia exacta.
+export interface Ubicacion {
+  region: string
+  zona: string
+  instalacion: string
+  area: string
+}
+export const CAMPOS_UBICACION: { clave: keyof Ubicacion; etiqueta: string; ejemplo: string }[] = [
+  { clave: "region", etiqueta: "Región", ejemplo: "I Región Militar" },
+  { clave: "zona", etiqueta: "Zona", ejemplo: "1/a. Zona Militar" },
+  { clave: "instalacion", etiqueta: "Unidad / instalación", ejemplo: "Centro Militar de Ciencias de la Salud" },
+  { clave: "area", etiqueta: "Área", ejemplo: "Alberca olímpica" },
+]
+
 export interface Cliente {
   id: string
+  tipo: TipoCliente
   nombre: string
   rfc: string
   contacto: string
@@ -96,7 +115,7 @@ export interface Cliente {
   createdAt: string
 }
 
-export interface Equipo {
+export interface Equipo extends Ubicacion {
   id: string
   clienteId: string
   tipo: string
@@ -146,10 +165,12 @@ export const PROCEDENCIAS_ORDEN: ProcedenciaOrden[] = [
   "Contrato",
 ]
 
-export interface OrdenServicio {
+export interface OrdenServicio extends Ubicacion {
   id: string
   folio: string
   procedencia: ProcedenciaOrden
+  contratoId: string | null
+  contratoPartidaId: string | null
   clienteId: string
   equipoId: string
   fechaSolicitud: string
