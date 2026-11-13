@@ -6,6 +6,7 @@ import type {
   Cliente,
   ConceptoCotizacion,
   Cotizacion,
+  Empresa,
   Equipo,
   EstadoCotizacion,
   EstadoEquipo,
@@ -340,6 +341,30 @@ export function mapLeadActividad(row: Record<string, any>): LeadActividad {
     usuarioId: row.usuario_id ?? null,
     createdAt: txt(row.created_at),
   }
+}
+
+export function mapEmpresa(row: Record<string, any>): Empresa {
+  return {
+    id: row.id,
+    clave: txt(row.clave),
+    nombreComercial: txt(row.nombre_comercial),
+    razonSocial: txt(row.razon_social),
+    rfc: txt(row.rfc),
+    prefijoFolio: row.prefijo_folio ?? null,
+    activa: row.activa ?? true,
+  }
+}
+
+export function empresaToDb(data: Partial<Empresa>): Record<string, any> {
+  const out: Record<string, any> = {}
+  if (data.clave !== undefined) out.clave = data.clave.trim().toUpperCase()
+  if (data.nombreComercial !== undefined) out.nombre_comercial = data.nombreComercial.trim()
+  if (data.razonSocial !== undefined) out.razon_social = data.razonSocial.trim()
+  if (data.rfc !== undefined) out.rfc = data.rfc.trim().toUpperCase() || null
+  if (data.prefijoFolio !== undefined)
+    out.prefijo_folio = data.prefijoFolio ? data.prefijoFolio.trim().toUpperCase() : null
+  if (data.activa !== undefined) out.activa = data.activa
+  return out
 }
 
 export function mapUsuario(row: Record<string, any>): Usuario {

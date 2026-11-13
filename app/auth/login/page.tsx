@@ -43,7 +43,8 @@ export default function LoginPage() {
       setCargando(false)
       return
     }
-    router.push("/")
+    // Después de iniciar sesión se elige la empresa (los clientes pasan directo al portal).
+    router.push("/seleccionar-empresa")
     router.refresh()
   }
 

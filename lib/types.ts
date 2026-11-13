@@ -281,6 +281,17 @@ export interface Tecnico {
   activo: boolean
 }
 
+// Razón social que opera en el sistema. Cada registro de negocio pertenece a una.
+export interface Empresa {
+  id: string
+  clave: string
+  nombreComercial: string
+  razonSocial: string
+  rfc: string
+  prefijoFolio: string | null
+  activa: boolean
+}
+
 export interface Usuario {
   id: string
   nombre: string

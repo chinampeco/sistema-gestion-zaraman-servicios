@@ -81,7 +81,7 @@ function isActivePath(pathname: string, href: string): boolean {
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const { usuarioActual } = useStore()
+  const { usuarioActual, empresaActiva } = useStore()
   const { isMobile, setOpenMobile } = useSidebar()
 
   function handleNavigate() {
@@ -119,10 +119,10 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-semibold tracking-wide">
-              ZARAMAN
+              {empresaActiva?.nombreComercial ?? "ZARAMAN"}
             </span>
-            <span className="text-xs text-sidebar-foreground/70">
-              Servicios Industriales
+            <span className="line-clamp-1 text-xs text-sidebar-foreground/70">
+              {empresaActiva?.razonSocial ?? "Servicios Industriales"}
             </span>
           </div>
         </div>

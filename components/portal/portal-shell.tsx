@@ -33,7 +33,7 @@ const NAV = [
 export function PortalShell({ children }: { children: ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
-  const { usuarioActual } = useStore()
+  const { usuarioActual, empresaActiva } = useStore()
 
   async function cerrarSesion() {
     const supabase = createClient()
@@ -50,7 +50,9 @@ export function PortalShell({ children }: { children: ReactNode }) {
             <Wrench className="size-5" />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-base font-semibold tracking-tight">ZARAMAN SERVICIOS</span>
+            <span className="text-base font-semibold tracking-tight">
+              {empresaActiva?.nombreComercial ?? "ZARAMAN SERVICIOS"}
+            </span>
             <Badge variant="outline" className="hidden sm:inline-flex">
               Portal de clientes
             </Badge>

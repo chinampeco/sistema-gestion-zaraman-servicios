@@ -272,15 +272,6 @@ function redondear(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100
 }
 
-// Genera el siguiente folio con formato OS-000001 a partir de los existentes.
-export function siguienteFolio(foliosExistentes: string[]): string {
-  const numeros = foliosExistentes
-    .map((f) => Number.parseInt(f.replace(/[^0-9]/g, ""), 10))
-    .filter((n) => !Number.isNaN(n))
-  const max = numeros.length > 0 ? Math.max(...numeros) : 0
-  return `OS-${String(max + 1).padStart(6, "0")}`
-}
-
 export function hoyISO(): string {
   return new Date().toISOString().slice(0, 10)
 }

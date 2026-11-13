@@ -19,6 +19,7 @@ import {
   mapCampana,
   mapCliente,
   mapCotizacion,
+  mapEmpresa,
   mapEquipo,
   mapFactura,
   mapLead,
@@ -38,6 +39,7 @@ import {
 import type {
   Cliente,
   Cotizacion,
+  Empresa,
   Equipo,
   Factura,
   Lead,
@@ -76,6 +78,12 @@ interface StoreContextValue {
   mensajesWhatsApp: MensajeWhatsApp[]
   usuarios: Usuario[]
   usuarioActual: Usuario
+  // Empresas a las que puede entrar el usuario y la que está usando ahora.
+  // `todasEmpresas` incluye las que no tiene asignadas (solo las ve el Administrador).
+  empresas: Empresa[]
+  todasEmpresas: Empresa[]
+  empresaActiva: Empresa | null
+  cambiarEmpresa: (empresaId: string) => Promise<void>
   cargando: boolean
   recargar: () => Promise<void>
 
@@ -181,6 +189,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [mensajesWhatsApp, setMensajesWhatsApp] = React.useState<MensajeWhatsApp[]>([])
   const [usuarios, setUsuarios] = React.useState<Usuario[]>([])
   const [usuarioActual, setUsuarioActual] = React.useState<Usuario>(USUARIO_PLACEHOLDER)
+  const [todasEmpresas, setTodasEmpresas] = React.useState<Empresa[]>([])
+  const [empresasAcceso, setEmpresasAcceso] = React.useState<string[]>([])
+  const [empresaActivaId, setEmpresaActivaId] = React.useState<string | null>(null)
   const [cargando, setCargando] = React.useState(true)
 
   const cargar = React.useCallback(async () => {
@@ -199,6 +210,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         mensajesWhatsAppRes,
         perfilesRes,
         userRes,
+        empresasRes,
+        accesoRes,
+        activaRes,
       ] = await Promise.all([
         supabase.from("clientes").select("*").order("nombre"),
         supabase.from("equipos").select("*").order("created_at", { ascending: false }),
@@ -214,7 +228,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         supabase.from("whatsapp_mensajes").select("*").order("created_at", { ascending: true }),
         supabase.from("profiles").select("*").order("nombre_completo"),
         supabase.auth.getUser(),
+        supabase.from("empresas").select("*").order("nombre_comercial"),
+        supabase.rpc("empresas_del_usuario"),
+        supabase.rpc("empresa_activa"),
       ])
+
+      if (empresasRes.data) setTodasEmpresas(empresasRes.data.map(mapEmpresa))
+      if (Array.isArray(accesoRes.data)) setEmpresasAcceso(accesoRes.data as string[])
+      setEmpresaActivaId((activaRes.data as string | null) ?? null)
 
       if (clientesRes.data) setClientes(clientesRes.data.map(mapCliente))
       if (equiposRes.data) setEquipos(equiposRes.data.map(mapEquipo))
@@ -286,6 +307,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       mensajesWhatsApp,
       usuarios,
       usuarioActual,
+      empresas: todasEmpresas.filter((e) => empresasAcceso.includes(e.id) && e.activa),
+      todasEmpresas,
+      empresaActiva: todasEmpresas.find((e) => e.id === empresaActivaId) ?? null,
+      cambiarEmpresa: async (empresaId) => {
+        const { error } = await supabase.rpc("seleccionar_empresa", { p_empresa_id: empresaId })
+        if (error) {
+          toast.error("No tienes acceso a esa empresa.")
+          return
+        }
+        // Recarga completa: todos los datos en pantalla cambian de empresa.
+        window.location.assign("/")
+      },
       cargando,
       recargar: cargar,
 
@@ -1184,7 +1217,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           .eq("leido", false)
       },
     }
-  }, [clientes, equipos, ordenes, tickets, cotizaciones, facturas, pagos, tecnicos, campanas, leads, leadActividades, mensajesWhatsApp, usuarios, usuarioActual, cargando, supabase])
+  }, [clientes, equipos, ordenes, tickets, cotizaciones, facturas, pagos, tecnicos, campanas, leads, leadActividades, mensajesWhatsApp, usuarios, usuarioActual, todasEmpresas, empresasAcceso, empresaActivaId, cargando, supabase])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

@@ -9,6 +9,9 @@ import { puedeAccederRuta, rutaInicioRol } from "@/lib/permisos"
 // el endpoint nunca se ejecuta y el cliente recibe HTML en vez de su respuesta.
 const PUBLIC_PATHS = ["/auth", "/_next", "/favicon.ico", "/api"]
 
+// Pantalla para elegir con qué empresa trabajar (después de iniciar sesión).
+export const RUTA_SELECTOR_EMPRESA = "/seleccionar-empresa"
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -46,11 +49,11 @@ export async function updateSession(request: NextRequest) {
 
   // Control de acceso por rol para usuarios autenticados en rutas internas.
   if (user && !isPublic) {
-    const { data: perfil } = await supabase
-      .from("profiles")
-      .select("rol")
-      .eq("id", user.id)
-      .single()
+    // empresa_activa() solo devuelve una empresa a la que el usuario sigue teniendo acceso.
+    const [{ data: perfil }, { data: empresaActiva }] = await Promise.all([
+      supabase.from("profiles").select("rol").eq("id", user.id).single(),
+      supabase.rpc("empresa_activa"),
+    ])
 
     const rol = perfil?.rol as RolUsuario | undefined
 
@@ -64,6 +67,13 @@ export async function updateSession(request: NextRequest) {
           url.pathname = "/portal"
           return NextResponse.redirect(url)
         }
+      } else if (pathname === RUTA_SELECTOR_EMPRESA) {
+        // El selector de empresa es accesible para todo el personal.
+      } else if (!empresaActiva) {
+        // Sin empresa elegida (o sin acceso a la que tenía): primero elegir empresa.
+        const url = request.nextUrl.clone()
+        url.pathname = RUTA_SELECTOR_EMPRESA
+        return NextResponse.redirect(url)
       } else {
         // El personal no entra al portal y solo ve los módulos de su rol.
         if (enPortal || !puedeAccederRuta(rol, pathname)) {

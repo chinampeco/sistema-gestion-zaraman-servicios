@@ -48,6 +48,64 @@ function adminClient() {
   )
 }
 
+type Admin = ReturnType<typeof adminClient>
+
+// Lista de empresas enviada por el formulario: ids únicos de texto.
+function leerEmpresas(valor: unknown): string[] | null {
+  if (!Array.isArray(valor)) return null
+  return [...new Set(valor.filter((v): v is string => typeof v === "string" && v.length > 0))]
+}
+
+// Verifica que las empresas existan y estén activas.
+async function validarEmpresas(admin: Admin, ids: string[]): Promise<string | null> {
+  if (ids.length === 0) return "Selecciona al menos una empresa a la que tendrá acceso."
+  const { data } = await admin.from("empresas").select("id").in("id", ids).eq("activa", true)
+  if ((data ?? []).length !== ids.length) return "Alguna de las empresas seleccionadas no existe o está inactiva."
+  return null
+}
+
+// La ficha de un técnico pertenece a una empresa; la cuenta debe tener acceso a ella.
+async function validarTecnicoEnEmpresas(
+  admin: Admin,
+  tecnicoId: string,
+  empresaIds: string[],
+): Promise<string | null> {
+  const { data } = await admin.from("tecnicos").select("empresa_id").eq("id", tecnicoId).maybeSingle()
+  if (!data) return "La ficha de técnico no existe."
+  if (!empresaIds.includes(data.empresa_id)) {
+    return "La ficha de técnico pertenece a una empresa a la que esta cuenta no tendrá acceso."
+  }
+  return null
+}
+
+// Deja al usuario con acceso exactamente a estas empresas. Si su empresa activa
+// ya no está en la lista, pasa a la primera.
+async function sincronizarEmpresas(admin: Admin, userId: string, ids: string[]): Promise<string | null> {
+  const { error: delError } = await admin
+    .from("usuario_empresas")
+    .delete()
+    .eq("usuario_id", userId)
+    .not("empresa_id", "in", `(${ids.join(",")})`)
+  if (delError) return "No se pudieron actualizar las empresas del usuario."
+
+  const { error: upError } = await admin
+    .from("usuario_empresas")
+    .upsert(ids.map((empresa_id) => ({ usuario_id: userId, empresa_id, activo: true })), {
+      onConflict: "usuario_id,empresa_id",
+    })
+  if (upError) return "No se pudieron actualizar las empresas del usuario."
+
+  const { data: perfil } = await admin
+    .from("profiles")
+    .select("empresa_activa_id")
+    .eq("id", userId)
+    .maybeSingle()
+  if (!perfil?.empresa_activa_id || !ids.includes(perfil.empresa_activa_id)) {
+    await admin.from("profiles").update({ empresa_activa_id: ids[0] }).eq("id", userId)
+  }
+  return null
+}
+
 // Crear un nuevo usuario interno con acceso al panel.
 export async function POST(request: Request) {
   const auth = await requireAdmin()
@@ -85,6 +143,14 @@ export async function POST(request: Request) {
   const tecnicoVinculo = rol === "Técnico" ? tecnicoId : null
 
   const admin = adminClient()
+
+  const empresas = leerEmpresas(body?.empresas) ?? []
+  const errorEmpresas =
+    (await validarEmpresas(admin, empresas)) ??
+    (tecnicoVinculo ? await validarTecnicoEnEmpresas(admin, tecnicoVinculo, empresas) : null)
+  if (errorEmpresas) {
+    return NextResponse.json({ error: errorEmpresas }, { status: 400 })
+  }
 
   if (tecnicoVinculo) {
     const { data: yaVinculada } = await admin
@@ -129,10 +195,11 @@ export async function POST(request: Request) {
     })
     .eq("id", created.user.id)
 
-  if (updateError) {
+  const errorSync = updateError ? null : await sincronizarEmpresas(admin, created.user.id, empresas)
+  if (updateError || errorSync) {
     await admin.auth.admin.deleteUser(created.user.id)
     return NextResponse.json(
-      { error: "No se pudo configurar el perfil del usuario." },
+      { error: errorSync ?? "No se pudo configurar el perfil del usuario." },
       { status: 500 },
     )
   }
@@ -216,6 +283,20 @@ export async function PATCH(request: Request) {
   const tecnicoId: string | null =
     typeof body?.tecnicoId === "string" && body.tecnicoId ? body.tecnicoId : null
 
+  // Empresas a las que tendrá acceso (opcional en la edición).
+  const empresas = leerEmpresas(body?.empresas)
+  if (empresas) {
+    const rolFinal = nuevoRol ?? objetivo.rol
+    const errorEmpresas =
+      (await validarEmpresas(admin, empresas)) ??
+      (rolFinal === "Técnico" && tecnicoId
+        ? await validarTecnicoEnEmpresas(admin, tecnicoId, empresas)
+        : null)
+    if (errorEmpresas) {
+      return NextResponse.json({ error: errorEmpresas }, { status: 400 })
+    }
+  }
+
   // Cambios en el perfil.
   const cambios: Record<string, unknown> = {}
   if (nuevoRol !== undefined) {
@@ -259,6 +340,11 @@ export async function PATCH(request: Request) {
         { status: 500 },
       )
     }
+  }
+
+  if (empresas) {
+    const errorSync = await sincronizarEmpresas(admin, userId, empresas)
+    if (errorSync) return NextResponse.json({ error: errorSync }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, userId })

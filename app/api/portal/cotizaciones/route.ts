@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 
 import { createClient } from "@/lib/supabase/server"
-import { siguienteFolio, hoyISO } from "@/lib/format"
+import { hoyISO } from "@/lib/format"
 import type { HistorialCotizacion } from "@/lib/types"
 
 // Acciones que el cliente del portal puede ejecutar sobre SU cotización.
@@ -146,13 +146,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, sinCambios: true, ordenId: cot.orden_id })
   }
 
-  // Folio de la nueva orden a partir de los existentes.
-  const { data: foliosRows } = await admin
-    .from("ordenes_servicio")
-    .select("folio")
-  const folios = (foliosRows ?? []).map((r: { folio: string }) => r.folio)
-  const folio = siguienteFolio(folios)
-
   const conceptos = Array.isArray(cot.conceptos) ? cot.conceptos : []
   const materiales = conceptos
     .map((c: { cantidad?: number; descripcion?: string; tipo?: string }) =>
@@ -164,8 +157,8 @@ export async function POST(request: Request) {
   // ordenes_servicio. La relación con la cotización se guarda en cotizaciones.orden_id.
   const { data: ordenRow, error: ordenError } = await admin
     .from("ordenes_servicio")
+    // Sin folio: la base asigna el de la empresa del cliente (OS-000020, BOC-OS-000001...).
     .insert({
-      folio,
       cliente_id: cot.cliente_id,
       equipo_id: cot.equipo_id ?? null,
       fecha_solicitud: hoyISO(),
