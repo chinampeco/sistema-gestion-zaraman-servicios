@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/page-header"
 import { ContratoFormDialog } from "@/components/contratos/contrato-form-dialog"
 import { PartidaFormDialog } from "@/components/contratos/partida-form-dialog"
 import { ExpedienteContrato } from "@/components/contratos/expediente-contrato"
+import { GarantiasContrato } from "@/components/contratos/garantias-contrato"
 import { EstadoContratoBadge } from "@/components/contratos/estado-contrato-badge"
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog"
 import { EstadoOrdenBadge } from "@/components/status-badges"
@@ -353,6 +354,16 @@ export default function ContratoDetallePage() {
               })}
             </ul>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Garantías y fianzas</CardTitle>
+          <CardDescription>Seguimiento de cada garantía: entrega, póliza y liberación.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <GarantiasContrato contratoId={contrato.id} documentos={documentos} puedeEditar={puedeGestionar} />
         </CardContent>
       </Card>
 
