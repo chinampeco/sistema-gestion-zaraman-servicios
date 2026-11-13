@@ -381,6 +381,9 @@ export function mapEmpresa(row: Record<string, any>): Empresa {
     logoPath: row.logo_path ?? null,
     prefijoFolio: row.prefijo_folio ?? null,
     activa: row.activa ?? true,
+    representanteLegal: txt(row.representante_legal),
+    representanteCargo: txt(row.representante_cargo) || "Representante Legal",
+    giro: txt(row.giro),
   }
 }
 
@@ -396,6 +399,10 @@ export function empresaToDb(data: Partial<Empresa>): Record<string, any> {
   if (data.prefijoFolio !== undefined)
     out.prefijo_folio = data.prefijoFolio ? data.prefijoFolio.trim().toUpperCase() : null
   if (data.activa !== undefined) out.activa = data.activa
+  if (data.representanteLegal !== undefined) out.representante_legal = data.representanteLegal.trim()
+  if (data.representanteCargo !== undefined)
+    out.representante_cargo = data.representanteCargo.trim() || "Representante Legal"
+  if (data.giro !== undefined) out.giro = data.giro.trim()
   return out
 }
 

@@ -328,6 +328,10 @@ export interface Empresa {
   logoPath: string | null
   prefijoFolio: string | null
   activa: boolean
+  // Firma "Verificó / Visto bueno" y encabezado de los formatos impresos.
+  representanteLegal: string
+  representanteCargo: string
+  giro: string
 }
 
 export interface Usuario {
