@@ -9,6 +9,8 @@
 --   (contrato, anexos, fianza, actas, CFDI, opiniones de cumplimiento...).
 -- * ordenes_servicio.contrato_id / contrato_partida_id: enlace de la orden con
 --   su contrato; una orden con contrato nace con procedencia 'Contrato'.
+-- * clientes.tipo (Particular / Gobierno) y región, zona, instalación y área en
+--   equipos, órdenes y partidas, para filtrar por ubicación.
 --
 -- Cambios aditivos: tablas y columnas nuevas, sin DROP ni cambios a datos
 -- existentes (salvo completar los datos de contacto de ZARAMAN).
@@ -137,7 +139,74 @@ alter table public.ordenes_servicio
 create index ordenes_servicio_contrato_idx on public.ordenes_servicio (contrato_id)
   where contrato_id is not null;
 
+-- 4b. Ubicación de equipos y órdenes (dependencias de gobierno) ------------------
+-- Para clientes de gobierno (SEDENA, CFE, PEMEX, IMSS...) cada equipo y orden
+-- lleva región / zona / instalación (unidad) / área, para filtrar los listados.
+-- Ej. SEDENA: "I Región Militar" / "1/a. Zona Militar" / "Centro Militar de
+-- Ciencias de la Salud" / "Alberca olímpica". Texto libre con sugerencias en la app.
+
+alter table public.clientes
+  add column tipo text not null default 'Particular'
+    check (tipo in ('Particular', 'Gobierno'));
+
+alter table public.equipos
+  add column region text not null default '',
+  add column zona   text not null default '',
+  add column instalacion text not null default '',
+  add column area   text not null default '';
+
+alter table public.ordenes_servicio
+  add column region text not null default '',
+  add column zona   text not null default '',
+  add column instalacion text not null default '',
+  add column area   text not null default '';
+
+alter table public.contrato_partidas
+  add column region text not null default '',
+  add column zona   text not null default '',
+  add column instalacion text not null default '',
+  add column area   text not null default '';
+
+create index equipos_ubicacion_idx on public.equipos (empresa_id, region, zona, instalacion);
+create index ordenes_servicio_ubicacion_idx on public.ordenes_servicio (empresa_id, region, zona, instalacion);
+
 -- 5. Triggers ---------------------------------------------------------------------
+
+-- Una orden sin ubicación captura la de su equipo o, si no tiene, la de su partida.
+-- Se copia (no se liga) para que el historial conserve dónde se hizo el servicio.
+create or replace function public.ubicacion_orden_por_defecto()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if btrim(new.region || new.zona || new.instalacion || new.area) <> '' then
+    return new;
+  end if;
+  if new.equipo_id is not null then
+    select e.region, e.zona, e.instalacion, e.area
+      into new.region, new.zona, new.instalacion, new.area
+      from public.equipos e where e.id = new.equipo_id;
+  end if;
+  if btrim(coalesce(new.region, '') || coalesce(new.zona, '') || coalesce(new.instalacion, '') || coalesce(new.area, '')) = ''
+     and new.contrato_partida_id is not null then
+    select p.region, p.zona, p.instalacion, p.area
+      into new.region, new.zona, new.instalacion, new.area
+      from public.contrato_partidas p where p.id = new.contrato_partida_id;
+  end if;
+  new.region := coalesce(new.region, '');
+  new.zona   := coalesce(new.zona, '');
+  new.instalacion := coalesce(new.instalacion, '');
+  new.area   := coalesce(new.area, '');
+  return new;
+end;
+$$;
+
+-- "ac_": después de ab_validar_contrato_orden (ya con contrato y partida resueltos).
+create trigger ac_ubicacion_orden
+  before insert or update of equipo_id, contrato_partida_id, region, zona, instalacion, area
+  on public.ordenes_servicio
+  for each row execute function public.ubicacion_orden_por_defecto();
+
 
 create trigger trg_touch_contratos before update on public.contratos
   for each row execute function public.touch_updated_at();
@@ -314,6 +383,7 @@ revoke all on function public.asignar_procedencia_orden() from public, anon, aut
 revoke all on function public.contrato_cliente_inmutable() from public, anon, authenticated;
 revoke all on function public.contrato_documento_inmutable() from public, anon, authenticated;
 revoke all on function public.validar_contrato_orden() from public, anon, authenticated;
+revoke all on function public.ubicacion_orden_por_defecto() from public, anon, authenticated;
 
 -- 6. RLS --------------------------------------------------------------------------
 
