@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { createClient } from "@/lib/supabase/client"
 import type { Empresa } from "@/lib/types"
 import { LogoEmpresa } from "@/components/empresas/logo-empresa"
+import { MarcaPlataforma } from "@/components/marca/marca-plataforma"
 
 export function SelectorEmpresa({
   empresas,
@@ -51,6 +52,7 @@ export function SelectorEmpresa({
     <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
       <div className="flex w-full max-w-md flex-col gap-6">
         <div className="flex flex-col items-center gap-1 text-center">
+          <MarcaPlataforma className="mb-4" />
           <h1 className="text-xl font-semibold tracking-tight">Selecciona la empresa</h1>
           <p className="text-sm text-muted-foreground">
             {nombreUsuario ? `${nombreUsuario}, elige` : "Elige"} con qué empresa vas a trabajar.
