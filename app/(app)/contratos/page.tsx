@@ -84,7 +84,11 @@ export default function ContratosPage() {
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input placeholder="Buscar por número, objeto o dependencia…" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
             </div>
-            <Select value={estado} onValueChange={(v) => setEstado(v as string)}>
+            <Select
+              value={estado}
+              onValueChange={(v) => setEstado(v as string)}
+              items={[{ value: "todos", label: "Todos los estados" }, ...ESTADOS_CONTRATO.map((e) => ({ value: e, label: e }))]}
+            >
               <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los estados</SelectItem>
