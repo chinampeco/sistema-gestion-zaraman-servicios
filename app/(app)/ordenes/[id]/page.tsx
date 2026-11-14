@@ -16,6 +16,7 @@ import { GarantiaOrden } from "@/components/ordenes/garantia-orden"
 import { EstadoOrdenBadge, PrioridadBadge } from "@/components/status-badges"
 import { Badge } from "@/components/ui/badge"
 import { ProcedenciaBadge } from "@/components/ordenes/procedencia-badge"
+import { OrdenContrato } from "@/components/ordenes/orden-contrato"
 import { tieneUbicacion } from "@/lib/ubicacion"
 import { CAMPOS_UBICACION } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -118,6 +119,11 @@ export default function OrdenDetailPage() {
           <OrdenParteTecnico orden={orden} />
         </CardContent>
       </Card>
+
+      <OrdenContrato
+        orden={orden}
+        editable={(puedeReasignarOrdenes(usuarioActual.rol) || usuarioActual.rol === "Técnico") && !orden.firmaCliente}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 flex flex-col gap-4">

@@ -117,6 +117,14 @@ export function mapOrden(row: Record<string, any>): OrdenServicio {
     procedencia: (row.procedencia ?? "Manual") as ProcedenciaOrden,
     contratoId: row.contrato_id ?? null,
     contratoPartidaId: row.contrato_partida_id ?? null,
+    referencia: txt(row.referencia),
+    actividades: parseJsonArray(row.actividades).map((a: any, i: number) => ({
+      numero: Number(a?.numero) || i + 1,
+      titulo: txt(a?.titulo),
+      detalle: Array.isArray(a?.detalle) ? a.detalle.map(txt) : [],
+      operativo: txt(a?.operativo),
+      realizada: a?.realizada === true,
+    })),
     ...mapUbicacion(row),
     clienteId: txt(row.cliente_id),
     equipoId: txt(row.equipo_id),
@@ -458,6 +466,8 @@ export function ordenToDb(data: Partial<OrdenServicio>): Record<string, any> {
   if (data.procedencia !== undefined) out.procedencia = data.procedencia
   if (data.contratoId !== undefined) out.contrato_id = data.contratoId || null
   if (data.contratoPartidaId !== undefined) out.contrato_partida_id = data.contratoPartidaId || null
+  if (data.referencia !== undefined) out.referencia = data.referencia.trim()
+  if (data.actividades !== undefined) out.actividades = data.actividades
   ubicacionToDb(data, out)
   if (data.clienteId !== undefined) out.cliente_id = data.clienteId || null
   if (data.equipoId !== undefined) out.equipo_id = data.equipoId || null
