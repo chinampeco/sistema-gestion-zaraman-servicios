@@ -98,7 +98,11 @@ export default function EquiposPage() {
                 className="pl-8"
               />
             </div>
-            <Select value={estadoFiltro} onValueChange={(v) => setEstadoFiltro(v as string)}>
+            <Select
+              value={estadoFiltro}
+              onValueChange={(v) => setEstadoFiltro(v as string)}
+              items={[{ value: "todos", label: "Todos los estados" }, ...ESTADOS_EQUIPO.map((e) => ({ value: e, label: e }))]}
+            >
               <SelectTrigger className="w-full sm:w-56">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>

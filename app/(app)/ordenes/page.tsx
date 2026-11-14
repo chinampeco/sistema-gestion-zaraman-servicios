@@ -81,14 +81,14 @@ export default function OrdenesPage() {
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input placeholder="Buscar por folio, cliente, tipo o ubicación…" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
             </div>
-            <Select value={estadoFiltro} onValueChange={(v) => setEstadoFiltro(v as string)}>
+            <Select value={estadoFiltro} onValueChange={(v) => setEstadoFiltro(v as string)} items={[{ value: "todos", label: "Todos los estados" }, ...ESTADOS_ORDEN.map((e) => ({ value: e, label: e }))]}>
               <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los estados</SelectItem>
                 {ESTADOS_ORDEN.map((estado) => <SelectItem key={estado} value={estado}>{estado}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={procedenciaFiltro} onValueChange={(v) => setProcedenciaFiltro(v as string)}>
+            <Select value={procedenciaFiltro} onValueChange={(v) => setProcedenciaFiltro(v as string)} items={[{ value: "todas", label: "Todas las procedencias" }, ...PROCEDENCIAS_ORDEN.map((p) => ({ value: p, label: p }))]}>
               <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Procedencia" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todas">Todas las procedencias</SelectItem>
