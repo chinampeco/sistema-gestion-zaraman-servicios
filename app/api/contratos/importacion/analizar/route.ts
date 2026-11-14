@@ -52,6 +52,18 @@ Documentos
 Advertencias
 - Anota en "advertencias" (en español, frases cortas) lo que no se pudo leer, lo que no cuadra (p. ej. la suma de partidas no coincide con el subtotal, fechas incongruentes) y los datos que el usuario debe completar a mano.`
 
+// Formato de la respuesta: el JSON Schema de la extracción, como texto.
+const FORMATO_RESPUESTA = `Formato de la respuesta
+Responde ÚNICAMENTE con un objeto JSON válido (sin texto antes ni después, sin bloques de código) que cumpla este JSON Schema. Usa exactamente estos nombres de campo y, en los campos con "enum", solo esos valores:
+${JSON.stringify(ESQUEMA_EXTRACCION)}`
+
+/** Toma el objeto JSON de la respuesta aunque venga entre \`\`\` o con texto alrededor. */
+function extraerJson(texto: string): string {
+  const inicio = texto.indexOf("{")
+  const fin = texto.lastIndexOf("}")
+  return inicio >= 0 && fin > inicio ? texto.slice(inicio, fin + 1) : texto
+}
+
 type Bloque = Anthropic.Beta.BetaContentBlockParam
 
 function tipoPorFirma(bytes: Uint8Array): "pdf" | "docx" | "jpeg" | "png" | null {
@@ -130,7 +142,7 @@ export async function POST(request: Request) {
   }
   contenido.push({
     type: "text",
-    text: `Son ${archivos.length} archivo(s), índices 0 a ${archivos.length - 1}. Extrae los datos del contrato según las instrucciones.`,
+    text: `Son ${archivos.length} archivo(s), índices 0 a ${archivos.length - 1}. Extrae los datos del contrato según las instrucciones y responde solo con el objeto JSON.`,
   })
 
   const client = new Anthropic()
@@ -142,11 +154,11 @@ export async function POST(request: Request) {
       // Si un clasificador de seguridad rechaza la petición, la API la reintenta
       // con el modelo de respaldo recomendado.
       fallbacks: "default",
-      output_config: {
-        effort: "medium",
-        format: { type: "json_schema", schema: ESQUEMA_EXTRACCION },
-      },
-      system: INSTRUCCIONES,
+      // El esquema completo es demasiado grande para la salida estricta de la API
+      // ("compiled grammar is too large"): se pide como instrucción y la
+      // respuesta se valida y normaliza en normalizarExtraccion().
+      output_config: { effort: "medium" },
+      system: `${INSTRUCCIONES}\n\n${FORMATO_RESPUESTA}`,
       messages: [{ role: "user", content: contenido }],
     })
     const respuesta = await stream.finalMessage()
@@ -163,12 +175,13 @@ export async function POST(request: Request) {
       .join("")
     let crudo: unknown
     try {
-      crudo = JSON.parse(texto)
+      crudo = JSON.parse(extraerJson(texto))
     } catch {
       return NextResponse.json({ error: "La respuesta de la IA no se pudo interpretar. Intenta de nuevo." }, { status: 502 })
     }
     return NextResponse.json({ extraccion: normalizarExtraccion(crudo, archivos.length), modelo: respuesta.model })
   } catch (error) {
+    console.error("[importacion/analizar]", error instanceof Anthropic.APIError ? `${error.status} ${error.message}` : error)
     if (error instanceof Anthropic.AuthenticationError) {
       return NextResponse.json({ error: "La clave de la IA no es válida. Revísala en Vercel." }, { status: 503 })
     }
