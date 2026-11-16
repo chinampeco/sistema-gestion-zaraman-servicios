@@ -165,12 +165,24 @@ export const PROCEDENCIAS_ORDEN: ProcedenciaOrden[] = [
   "Contrato",
 ]
 
+export interface ActividadOrden {
+  numero: number
+  titulo: string
+  detalle: string[]
+  operativo: string
+  realizada: boolean
+}
+
 export interface OrdenServicio extends Ubicacion {
   id: string
   folio: string
   procedencia: ProcedenciaOrden
   contratoId: string | null
   contratoPartidaId: string | null
+  // Órdenes de contrato: referencia de la dependencia (p. ej. P01.SAE-245-01)
+  // y actividades de la ficha técnica con lo realizado.
+  referencia?: string
+  actividades?: ActividadOrden[]
   clienteId: string
   equipoId: string
   fechaSolicitud: string

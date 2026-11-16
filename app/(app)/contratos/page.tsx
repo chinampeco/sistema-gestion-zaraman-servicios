@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { FileSignature, Plus, Search } from "lucide-react"
+import { FileSignature, Plus, Search, Sparkles } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
 import { ContratoFormDialog } from "@/components/contratos/contrato-form-dialog"
@@ -63,10 +63,16 @@ export default function ContratosPage() {
         description={`Contratos de ${empresaActiva?.nombreComercial ?? "la empresa"}, sus partidas y su expediente digital.`}
         actions={
           puedeGestionar ? (
-            <Button onClick={() => setNuevoAbierto(true)}>
-              <Plus data-icon="inline-start" />
-              Registrar contrato
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button render={<Link href="/contratos/importar" />} nativeButton={false}>
+                <Sparkles data-icon="inline-start" />
+                Nuevo desde documentos
+              </Button>
+              <Button variant="outline" onClick={() => setNuevoAbierto(true)}>
+                <Plus data-icon="inline-start" />
+                Captura manual
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -78,7 +84,11 @@ export default function ContratosPage() {
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input placeholder="Buscar por número, objeto o dependencia…" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
             </div>
-            <Select value={estado} onValueChange={(v) => setEstado(v as string)}>
+            <Select
+              value={estado}
+              onValueChange={(v) => setEstado(v as string)}
+              items={[{ value: "todos", label: "Todos los estados" }, ...ESTADOS_CONTRATO.map((e) => ({ value: e, label: e }))]}
+            >
               <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los estados</SelectItem>
