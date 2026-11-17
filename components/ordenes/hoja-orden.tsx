@@ -173,8 +173,15 @@ function FormatoBocam({ hoja: h }: { hoja: HojaOrden }) {
   const grupos = agrupar(h.equipos)
   return (
     <div className="ho-hoja ho-boc">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/empresas/bocam-encabezado.jpg" alt={h.empresa.razonSocial} className="ho-boc-head" />
+      {/* Encabezado en texto (como su hoja de Word): nítido al imprimir. */}
+      <div className="ho-boc-head">
+        <div className="ho-boc-nom">CONSTRUCTORA E INMOBILIARIA BOCAM S.A. DE C.V.</div>
+        <div className="ho-boc-dat">
+          <div>EDIFICIO CAMPECHE No. 43 DEPTO. 302<br />FRACC. LAS TORRES C.P. 60950<br />Email: <u>constructora_bocam@yahoo.com.mx</u></div>
+          <div>LÁZARO CÁRDENAS, MICH.<br />R.F.C.: CIB-130321-IF7</div>
+          <div>TEL. Y FAX:<br />7531142513<br />7535313100</div>
+        </div>
+      </div>
       <table className="ho-boc-no"><tbody><tr><td>NO:</td><td>{h.orden.referencia || h.orden.folio}</td></tr></tbody></table>
       {h.partida && (
         <div className="ho-c">
@@ -301,7 +308,7 @@ export const ESTILOS_HOJA = `
 .ho-t td,.ho-t th{border:1px solid #333;padding:3px 5px;vertical-align:top}
 .ho-c{text-align:center;vertical-align:middle!important}.ho-n{width:7%}.ho-r{width:15%}
 .ho-bar{background:#1e40af;color:#fff;text-align:center;font-weight:bold}
-.ho-bv{background:#2dd4a0;text-align:center;font-weight:bold}
+.ho-bv{background:#00cc8f;text-align:center;font-weight:bold}
 .ho-folio{margin:3mm 0 3mm auto;width:95mm!important}.ho-folio td{border:1px solid #333;padding:3px 6px;font-weight:bold;font-size:11px}.ho-folio td:first-child{background:#1e40af;color:#fff;text-align:right;width:45%}
 .ho-tit{text-align:center;margin-bottom:3mm}.ho-tit b{font-size:13px}
 .ho-sil{width:94%!important;margin:2px auto 6px}.ho-sil td,.ho-sil th{border:1px solid #555;padding:1px 4px;font-size:9.5px;vertical-align:middle}
@@ -316,7 +323,10 @@ export const ESTILOS_HOJA = `
 .ho-tol-head{display:flex;height:24mm;border-bottom:4px solid #1e3a8a}.ho-tol-head img{height:22mm}
 .ho-tol-giro{flex:1;background:linear-gradient(105deg,transparent 0 9%,#1d4ed8 9%);color:#fff;font-weight:bold;font-size:8.4px;padding:3mm 3mm 0 12mm;text-align:justify;text-transform:uppercase;line-height:1.25}
 .ho-tol-pie{margin-top:3mm;background:#1e3a8a;color:#fff;text-align:center;font-size:9px;padding:2mm;line-height:1.4}
-.ho-boc-head{width:100%;display:block}.ho-boc-no{margin:2mm 0 3mm auto;width:105mm!important;background:#2dd4a0}.ho-boc-no td{font-weight:bold;font-size:11px;padding:2px 6px;text-align:right}
+.ho-boc-head{text-align:center;margin-bottom:1mm}
+.ho-boc-nom{color:#00a650;font-family:Verdana,"DejaVu Sans",Arial,sans-serif;font-size:21px;font-weight:900;letter-spacing:.3px;line-height:1.15}
+.ho-boc-dat{display:grid;grid-template-columns:1.25fr 1fr .65fr;gap:4mm;width:150mm;margin:1mm auto 0;text-align:left;font-size:8.6px;font-weight:bold;line-height:1.3}
+.ho-boc-dat u{color:#1d4ed8}.ho-boc-no{margin:2mm 0 3mm auto;width:105mm!important;background:#00cc8f}.ho-boc-no td{font-weight:bold;font-size:11px;padding:2px 6px;text-align:right}
 .ho-sinborde td{padding:2px 4px}
 .ho-gen-head{display:flex;gap:6mm;align-items:center;border-bottom:3px solid #1e40af;padding-bottom:3mm}.ho-gen-head img{height:20mm}.ho-gen-nom{font-size:20px}
 @media print{
