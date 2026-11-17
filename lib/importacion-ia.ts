@@ -1,0 +1,62 @@
+// Utilidades de servidor para leer documentos con la IA (contratos y órdenes).
+
+import type Anthropic from "@anthropic-ai/sdk"
+import mammoth from "mammoth"
+
+export type Bloque = Anthropic.Beta.BetaContentBlockParam
+
+/** Modelo con el que se leen los documentos. */
+export const MODELO_LECTURA = "claude-opus-5-5"
+
+export function tipoPorFirma(bytes: Uint8Array): "pdf" | "docx" | "jpeg" | "png" | null {
+  if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "pdf"
+  if (bytes[0] === 0x50 && bytes[1] === 0x4b) return "docx"
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) return "jpeg"
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "png"
+  return null
+}
+
+/** Toma el objeto JSON de la respuesta aunque venga entre \`\`\` o con texto alrededor. */
+export function extraerJson(texto: string): string {
+  const inicio = texto.indexOf("{")
+  const fin = texto.lastIndexOf("}")
+  return inicio >= 0 && fin > inicio ? texto.slice(inicio, fin + 1) : texto
+}
+
+/** Convierte un archivo en bloques para la IA; null si no es PDF, Word ni imagen. */
+export async function bloquesDeArchivo(buffer: Buffer, titulo: string): Promise<Bloque[] | null> {
+  const tipo = tipoPorFirma(buffer)
+  if (tipo === "pdf") {
+    return [
+      {
+        type: "document",
+        title: titulo,
+        source: { type: "base64", media_type: "application/pdf", data: buffer.toString("base64") },
+      },
+    ]
+  }
+  if (tipo === "docx") {
+    // Word no se envía tal cual: se convierte a HTML (conserva las tablas) sin imágenes.
+    const { value: html } = await mammoth.convertToHtml(
+      { buffer },
+      { convertImage: mammoth.images.imgElement(async () => ({ src: "" })) },
+    )
+    return [
+      {
+        type: "document",
+        title: titulo,
+        source: { type: "text", media_type: "text/plain", data: html || "(documento vacío)" },
+      },
+    ]
+  }
+  if (tipo === "jpeg" || tipo === "png") {
+    return [
+      { type: "text", text: titulo },
+      {
+        type: "image",
+        source: { type: "base64", media_type: tipo === "png" ? "image/png" : "image/jpeg", data: buffer.toString("base64") },
+      },
+    ]
+  }
+  return null
+}

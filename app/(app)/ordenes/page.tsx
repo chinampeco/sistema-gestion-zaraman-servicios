@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Plus, Search, Eye, Pencil, ClipboardList, Trash2 } from "lucide-react"
+import { Plus, Search, Eye, Pencil, ClipboardList, Trash2, ScanLine } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
 import { OrdenFormDialog } from "@/components/ordenes/orden-form-dialog"
@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { useStore } from "@/lib/store"
-import { puedeReasignarOrdenes } from "@/lib/permisos"
+import { puedeGestionarContratos, puedeReasignarOrdenes } from "@/lib/permisos"
 import { formatFecha } from "@/lib/format"
 import { ESTADOS_ORDEN, PROCEDENCIAS_ORDEN, type OrdenServicio } from "@/lib/types"
 import { ProcedenciaBadge } from "@/components/ordenes/procedencia-badge"
@@ -35,6 +35,7 @@ export default function OrdenesPage() {
   const [deleting, setDeleting] = React.useState<OrdenServicio | null>(null)
 
   const puedeGestionarOrdenes = puedeReasignarOrdenes(usuarioActual.rol)
+  const puedeImportar = puedeGestionarContratos(usuarioActual.rol)
 
   const nombreCliente = (id: string) => clientes.find((c) => c.id === id)?.nombre ?? "—"
   const nombreEquipo = (id: string) => {
@@ -69,7 +70,19 @@ export default function OrdenesPage() {
       <PageHeader
         title="Órdenes de servicio"
         description="Gestión de órdenes de servicio técnico."
-        actions={puedeGestionarOrdenes ? <Button onClick={openNueva}><Plus data-icon="inline-start" />Nueva orden</Button> : null}
+        actions={
+          puedeGestionarOrdenes || puedeImportar ? (
+            <div className="flex flex-wrap gap-2">
+              {puedeImportar ? (
+                <Button variant="outline" render={<Link href="/ordenes/importar" />} nativeButton={false}>
+                  <ScanLine data-icon="inline-start" />
+                  Importar órdenes físicas
+                </Button>
+              ) : null}
+              {puedeGestionarOrdenes ? <Button onClick={openNueva}><Plus data-icon="inline-start" />Nueva orden</Button> : null}
+            </div>
+          ) : null
+        }
       />
 
       <PendientesAsignacion />
