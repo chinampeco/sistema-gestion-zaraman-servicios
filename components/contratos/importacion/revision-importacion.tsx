@@ -27,14 +27,20 @@ import {
   type ExtraccionGarantia,
   type ExtraccionPartida,
 } from "@/lib/importacion-contratos"
+import type { NuevoClienteImportacion } from "@/lib/importacion-guardar"
 import type { Cliente, Ubicacion } from "@/lib/types"
 
 const NUEVO = "__nuevo__"
 
 export interface SeleccionCliente {
   clienteId: string | null
-  nuevo: { nombre: string; rfc: string; direccion: string }
+  nuevo: NuevoClienteImportacion
+  /** Acceso al portal para el cliente nuevo, con la contraseña inicial. */
+  acceso: { crear: boolean; email: string }
 }
+
+/** Contraseña inicial de los accesos al portal creados al importar un contrato. */
+export const PASSWORD_PORTAL_INICIAL = "123456"
 
 // Pantalla de revisión: todo lo que leyó la IA, editable antes de guardar.
 export function RevisionImportacion({
@@ -55,6 +61,8 @@ export function RevisionImportacion({
   sugerenciasUbicacion: Ubicacion[]
 }) {
   const c = valor.contrato
+  const setNuevo = (cambios: Partial<NuevoClienteImportacion>) =>
+    onCliente({ ...cliente, nuevo: { ...cliente.nuevo, ...cambios } })
   const setContrato = <K extends keyof ExtraccionContrato["contrato"]>(k: K, v: ExtraccionContrato["contrato"][K]) =>
     onChange({ ...valor, contrato: { ...c, [k]: v } })
   const setPartida = (i: number, cambios: Partial<ExtraccionPartida>) =>
@@ -66,12 +74,13 @@ export function RevisionImportacion({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Dependencia */}
+      {/* Cliente = área usuaria */}
       <Card>
         <CardHeader>
-          <CardTitle>Dependencia (cliente)</CardTitle>
+          <CardTitle>Cliente (área usuaria)</CardTitle>
           <CardDescription>
-            Leído: <strong>{valor.dependencia.nombre || "—"}</strong>
+            Leído: <strong>{valor.dependencia.area_usuaria || "—"}</strong>
+            {valor.dependencia.nombre ? ` · de ${valor.dependencia.nombre}` : ""}
             {valor.dependencia.rfc ? ` · RFC ${valor.dependencia.rfc}` : ""}
           </CardDescription>
         </CardHeader>
@@ -82,13 +91,13 @@ export function RevisionImportacion({
               value={cliente.clienteId ?? NUEVO}
               onValueChange={(v) => onCliente({ ...cliente, clienteId: v === NUEVO ? null : (v as string) })}
               items={[
-                { value: NUEVO, label: `Nueva dependencia: ${cliente.nuevo.nombre || "(sin nombre)"}` },
+                { value: NUEVO, label: `Nuevo cliente: ${cliente.nuevo.nombre || "(sin nombre)"}` },
                 ...clientes.map((x) => ({ value: x.id, label: x.nombre })),
               ]}
             >
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value={NUEVO}>Nueva dependencia: {cliente.nuevo.nombre || "(sin nombre)"}</SelectItem>
+                <SelectItem value={NUEVO}>Nuevo cliente: {cliente.nuevo.nombre || "(sin nombre)"}</SelectItem>
                 {clientes.map((x) => (
                   <SelectItem key={x.id} value={x.id}>
                     {x.nombre}{x.tipo === "Gobierno" ? " · Gobierno" : ""}
@@ -100,17 +109,61 @@ export function RevisionImportacion({
           {cliente.clienteId === null && (
             <>
               <Field>
-                <FieldLabel htmlFor="imp-dep-nombre">Nombre de la dependencia</FieldLabel>
-                <Input id="imp-dep-nombre" value={cliente.nuevo.nombre} onChange={(e) => onCliente({ ...cliente, nuevo: { ...cliente.nuevo, nombre: e.target.value } })} />
+                <FieldLabel htmlFor="imp-cli-nombre">Área usuaria (nombre del cliente)</FieldLabel>
+                <Input id="imp-cli-nombre" value={cliente.nuevo.nombre} onChange={(e) => setNuevo({ nombre: e.target.value })} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="imp-dep-rfc">RFC</FieldLabel>
-                <Input id="imp-dep-rfc" className="uppercase" value={cliente.nuevo.rfc} onChange={(e) => onCliente({ ...cliente, nuevo: { ...cliente.nuevo, rfc: e.target.value } })} />
+                <FieldLabel htmlFor="imp-cli-dep">Dependencia</FieldLabel>
+                <Input id="imp-cli-dep" value={cliente.nuevo.dependencia} onChange={(e) => setNuevo({ dependencia: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="imp-cli-rfc">RFC</FieldLabel>
+                <Input id="imp-cli-rfc" className="uppercase" value={cliente.nuevo.rfc} onChange={(e) => setNuevo({ rfc: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="imp-cli-contacto">Contacto</FieldLabel>
+                <Input id="imp-cli-contacto" value={cliente.nuevo.contacto} onChange={(e) => setNuevo({ contacto: e.target.value })} />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="imp-cli-email">Correo</FieldLabel>
+                <Input
+                  id="imp-cli-email"
+                  type="email"
+                  value={cliente.nuevo.email}
+                  onChange={(e) => onCliente({ ...cliente, nuevo: { ...cliente.nuevo, email: e.target.value }, acceso: { ...cliente.acceso, email: e.target.value } })}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="imp-cli-tel">Teléfono</FieldLabel>
+                <Input id="imp-cli-tel" value={cliente.nuevo.telefono} onChange={(e) => setNuevo({ telefono: e.target.value })} />
               </Field>
               <Field className="sm:col-span-2">
-                <FieldLabel htmlFor="imp-dep-dom">Domicilio</FieldLabel>
-                <Input id="imp-dep-dom" value={cliente.nuevo.direccion} onChange={(e) => onCliente({ ...cliente, nuevo: { ...cliente.nuevo, direccion: e.target.value } })} />
+                <FieldLabel htmlFor="imp-cli-dom">Domicilio</FieldLabel>
+                <Input id="imp-cli-dom" value={cliente.nuevo.direccion} onChange={(e) => setNuevo({ direccion: e.target.value })} />
               </Field>
+              <Field orientation="horizontal" className="sm:col-span-2">
+                <Switch
+                  id="imp-cli-acceso"
+                  checked={cliente.acceso.crear}
+                  onCheckedChange={(v) => onCliente({ ...cliente, acceso: { ...cliente.acceso, crear: v } })}
+                />
+                <FieldLabel htmlFor="imp-cli-acceso">Crear su acceso al portal de clientes</FieldLabel>
+              </Field>
+              {cliente.acceso.crear && (
+                <Field className="sm:col-span-2">
+                  <FieldLabel htmlFor="imp-cli-acceso-email">Correo para entrar al portal</FieldLabel>
+                  <Input
+                    id="imp-cli-acceso-email"
+                    type="email"
+                    value={cliente.acceso.email}
+                    onChange={(e) => onCliente({ ...cliente, acceso: { ...cliente.acceso, email: e.target.value } })}
+                    placeholder="correo@dependencia.gob.mx"
+                  />
+                  <FieldDescription>
+                    Entra con este correo y la contraseña <strong>{PASSWORD_PORTAL_INICIAL}</strong>. Puedes cambiarla después en la ficha del cliente.
+                  </FieldDescription>
+                </Field>
+              )}
             </>
           )}
         </CardContent>

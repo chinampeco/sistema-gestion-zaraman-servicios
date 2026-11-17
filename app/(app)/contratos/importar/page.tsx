@@ -6,7 +6,11 @@ import { ArrowLeft, CheckCircle2, FileText, Sparkles, Trash2, Upload } from "luc
 import { toast } from "sonner"
 
 import { PageHeader } from "@/components/page-header"
-import { RevisionImportacion, type SeleccionCliente } from "@/components/contratos/importacion/revision-importacion"
+import {
+  PASSWORD_PORTAL_INICIAL,
+  RevisionImportacion,
+  type SeleccionCliente,
+} from "@/components/contratos/importacion/revision-importacion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,10 +31,31 @@ import {
 } from "@/lib/importacion-contratos"
 import { guardarImportacion, type ArchivoLote } from "@/lib/importacion-guardar"
 
+const CLIENTE_VACIO: SeleccionCliente = {
+  clienteId: null,
+  nuevo: { nombre: "", rfc: "", direccion: "", contacto: "", email: "", telefono: "", dependencia: "" },
+  acceso: { crear: true, email: "" },
+}
+
 type Paso = "subir" | "analizando" | "revision" | "guardando" | "listo"
 
 const normalizar = (s: string) =>
   s.toLocaleLowerCase("es-MX").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "")
+
+async function crearAccesoPortal(clienteId: string, nombre: string, email: string): Promise<string> {
+  try {
+    const r = await fetch("/api/portal-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clienteId, nombre, email, password: PASSWORD_PORTAL_INICIAL }),
+    })
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok) return `No se creó el acceso al portal: ${d.error ?? "error desconocido"}. Puedes crearlo desde la ficha del cliente.`
+    return `Acceso al portal creado: ${email} con la contraseña ${PASSWORD_PORTAL_INICIAL}.`
+  } catch {
+    return "No se creó el acceso al portal (sin conexión). Puedes crearlo desde la ficha del cliente."
+  }
+}
 
 export default function ImportarContratoPage() {
   const { clientes, equipos, ordenes, usuarioActual, empresaActiva } = useStore()
@@ -38,7 +63,7 @@ export default function ImportarContratoPage() {
   const [archivos, setArchivos] = React.useState<File[]>([])
   const [lote, setLote] = React.useState<{ id: string; archivos: ArchivoLote[] } | null>(null)
   const [extraccion, setExtraccion] = React.useState<ExtraccionContrato | null>(null)
-  const [cliente, setCliente] = React.useState<SeleccionCliente>({ clienteId: null, nuevo: { nombre: "", rfc: "", direccion: "" } })
+  const [cliente, setCliente] = React.useState<SeleccionCliente>(CLIENTE_VACIO)
   const [crearEquipos, setCrearEquipos] = React.useState(true)
   const [crearOrdenes, setCrearOrdenes] = React.useState(true)
   const [mensaje, setMensaje] = React.useState("")
@@ -130,13 +155,23 @@ export default function ImportarContratoPage() {
       const ex: ExtraccionContrato = d2.extraccion
       setExtraccion(ex)
 
-      // Si la dependencia ya existe (mismo RFC o nombre), se propone esa.
-      const existente =
-        clientes.find((c) => ex.dependencia.rfc && c.rfc.toUpperCase() === ex.dependencia.rfc) ??
-        clientes.find((c) => ex.dependencia.nombre && normalizar(c.nombre) === normalizar(ex.dependencia.nombre))
+      // El cliente es el área usuaria. Varias áreas comparten el RFC de su
+      // dependencia, así que solo se propone un cliente existente si el nombre coincide.
+      const area = ex.dependencia.area_usuaria || ex.contrato.area_requirente || ex.dependencia.nombre
+      const existente = clientes.find((c) => area && normalizar(c.nombre) === normalizar(area))
+      const email = ex.contrato.contacto_email.toLowerCase()
       setCliente({
         clienteId: existente?.id ?? null,
-        nuevo: { nombre: ex.dependencia.nombre, rfc: ex.dependencia.rfc, direccion: ex.dependencia.domicilio },
+        nuevo: {
+          nombre: area,
+          rfc: ex.dependencia.rfc,
+          direccion: ex.dependencia.area_usuaria_domicilio || ex.dependencia.domicilio,
+          contacto: ex.contrato.administrador_nombre,
+          email,
+          telefono: ex.contrato.contacto_telefono,
+          dependencia: ex.dependencia.nombre,
+        },
+        acceso: { crear: true, email },
       })
       setPaso("revision")
     } catch (e) {
@@ -149,7 +184,12 @@ export default function ImportarContratoPage() {
     if (!extraccion || !lote || !empresaActiva) return
     setError(null)
     if (!extraccion.contrato.numero_contrato.trim()) return setError("Captura el número de contrato.")
-    if (!cliente.clienteId && !cliente.nuevo.nombre.trim()) return setError("Indica la dependencia.")
+    if (!cliente.clienteId && !cliente.nuevo.nombre.trim()) return setError("Indica el área usuaria (cliente).")
+    const correoAcceso = cliente.acceso.email.trim().toLowerCase()
+    const crearAcceso = !cliente.clienteId && cliente.acceso.crear
+    if (crearAcceso && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoAcceso)) {
+      return setError("Escribe el correo para el acceso al portal, o desactiva esa opción.")
+    }
 
     setPaso("guardando")
     const r = await guardarImportacion(
@@ -174,7 +214,12 @@ export default function ImportarContratoPage() {
       }
     }
     await limpiarLote(lote.id)
-    setResultado({ contratoId: r.contratoId, pasos: r.pasos })
+    const pasos = [...r.pasos]
+    if (crearAcceso && r.clienteNuevo && r.clienteId) {
+      setMensaje("Creando el acceso al portal del cliente…")
+      pasos.push(await crearAccesoPortal(r.clienteId, cliente.nuevo.nombre.trim(), correoAcceso))
+    }
+    setResultado({ contratoId: r.contratoId, pasos })
     setPaso("listo")
   }
 

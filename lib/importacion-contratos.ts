@@ -114,7 +114,14 @@ export interface ExtraccionGarantia {
 }
 
 export interface ExtraccionContrato {
-  dependencia: { nombre: string; rfc: string; domicilio: string }
+  dependencia: {
+    nombre: string
+    rfc: string
+    domicilio: string
+    /** Área usuaria del contrato: es quien queda como cliente en el sistema. */
+    area_usuaria: string
+    area_usuaria_domicilio: string
+  }
   contrato: {
     numero_contrato: string
     objeto: string
@@ -164,7 +171,7 @@ function objeto(properties: Record<string, unknown>) {
 }
 
 export const ESQUEMA_EXTRACCION = objeto({
-  dependencia: objeto({ nombre: S, rfc: S, domicilio: S }),
+  dependencia: objeto({ nombre: S, rfc: S, domicilio: S, area_usuaria: S, area_usuaria_domicilio: S }),
   contrato: objeto({
     numero_contrato: S,
     objeto: S,
@@ -307,6 +314,8 @@ export function normalizarExtraccion(raw: any, totalArchivos: number): Extraccio
       nombre: txt(raw?.dependencia?.nombre),
       rfc: txt(raw?.dependencia?.rfc).toUpperCase(),
       domicilio: txt(raw?.dependencia?.domicilio),
+      area_usuaria: txt(raw?.dependencia?.area_usuaria),
+      area_usuaria_domicilio: txt(raw?.dependencia?.area_usuaria_domicilio),
     },
     contrato: {
       numero_contrato: txt(c.numero_contrato),
