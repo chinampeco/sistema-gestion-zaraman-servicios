@@ -96,13 +96,53 @@ const marcaPrincipal = (h: HojaOrden) => [...new Set(h.equipos.map((e) => e.marc
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Logo de Toltecatl redibujado en vectorial (letras, líneas y arco nítidos al
+ * imprimir); solo la cabeza del dragón es imagen.
+ */
+function LogoToltecatl() {
+  return (
+    <svg viewBox="0 0 800 210" className="ho-tol-logo" role="img" aria-label="Ingeniería y Mantenimiento Toltecatl Industrial">
+      <defs>
+        <linearGradient id="ho-arco" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#b8bcc4" />
+          <stop offset="0.5" stopColor="#6b7280" />
+          <stop offset="1" stopColor="#c7cbd1" />
+        </linearGradient>
+        <linearGradient id="ho-barra" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#8ec5ea" />
+          <stop offset="1" stopColor="#9bcbe9" />
+        </linearGradient>
+      </defs>
+      {/* Arco gris en forma de C */}
+      <path d="M 150 30 A 88 88 0 1 0 150 182" fill="none" stroke="url(#ho-arco)" strokeWidth="24" strokeLinecap="round" />
+      <path d="M 150 30 A 88 88 0 0 0 98 22" fill="none" stroke="#1e40af" strokeWidth="5" strokeLinecap="round" />
+      <path d="M 150 182 A 88 88 0 0 1 98 190" fill="none" stroke="#1e40af" strokeWidth="5" strokeLinecap="round" />
+      <text x="378" y="52" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize="30" fill="#2e7d32" textLength="390" lengthAdjust="spacingAndGlyphs">
+        INGENIERÍA Y MANTENIMIENTO
+      </text>
+      {/* Barras superior e inferior (azul con filo rojo) */}
+      <rect x="72" y="64" width="575" height="9" fill="url(#ho-barra)" stroke="#1e3a8a" strokeWidth="1.2" />
+      <rect x="72" y="73" width="575" height="3" fill="#c62828" />
+      <rect x="72" y="135" width="575" height="3" fill="#c62828" />
+      <rect x="72" y="138" width="575" height="9" fill="url(#ho-barra)" stroke="#1e3a8a" strokeWidth="1.2" />
+      <text x="340" y="124" textAnchor="middle" fontFamily="Georgia, 'Times New Roman', serif" fontWeight="700" fontSize="54" fill="#2f4f8f" textLength="450" lengthAdjust="spacing">
+        TOLTECATL
+      </text>
+      <text x="370" y="190" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize="32" fill="#b91c1c" textLength="320" lengthAdjust="spacing">
+        INDUSTRIAL
+      </text>
+      <image href="/logos/toltecatl-dragon.png" x="608" y="10" width="192" height="176" preserveAspectRatio="xMidYMid meet" />
+    </svg>
+  )
+}
+
 function FormatoToltecatl({ hoja: h }: { hoja: HojaOrden }) {
   const acts = h.actividades.length ? h.actividades : [{ numero: 1, titulo: h.orden.trabajoRealizado || h.orden.descripcion, detalle: [], realizada: h.orden.estado === "Terminada" }]
   return (
     <div className="ho-hoja ho-tol">
       <div className="ho-tol-head">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logos/toltecatl.png" alt="Toltecatl" />
+        <LogoToltecatl />
         <div className="ho-tol-giro">{h.empresa.giro || "SUMINISTRO, DISEÑO, INSTALACIÓN Y MANTENIMIENTO INDUSTRIAL."}</div>
       </div>
       <table className="ho-folio">
@@ -320,7 +360,7 @@ export const ESTILOS_HOJA = `
 .ho-firmas span,.ho-firmas b,.ho-firmas small{display:block}.ho-firmas span{text-align:center;margin-bottom:2px}
 .ho-firma{display:block;height:15mm;max-width:100%;margin:0 auto;object-fit:contain}
 .ho-sis{font-size:8.5px;color:#555;margin-top:2mm}
-.ho-tol-head{display:flex;height:24mm;border-bottom:4px solid #1e3a8a}.ho-tol-head img{height:22mm}
+.ho-tol-head{display:flex;height:24mm;border-bottom:4px solid #1e3a8a}.ho-tol-logo{height:22mm;width:auto;flex:none}
 .ho-tol-giro{flex:1;background:linear-gradient(105deg,transparent 0 9%,#1d4ed8 9%);color:#fff;font-weight:bold;font-size:8.4px;padding:3mm 3mm 0 12mm;text-align:justify;text-transform:uppercase;line-height:1.25}
 .ho-tol-pie{margin-top:3mm;background:#1e3a8a;color:#fff;text-align:center;font-size:9px;padding:2mm;line-height:1.4}
 .ho-boc-head{text-align:center;margin-bottom:1mm}
