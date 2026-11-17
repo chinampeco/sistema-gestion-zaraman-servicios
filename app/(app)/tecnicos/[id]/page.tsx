@@ -137,6 +137,13 @@ export default function TecnicoDetallePage() {
               <Wrench className="size-4 text-muted-foreground" />
               <span>{tecnico.especialidad || "—"}</span>
             </div>
+            <div className="text-sm">
+              <span className="text-muted-foreground">Cédula profesional: </span>
+              {tecnico.tieneCedula ? "Sí" : "No"}
+            </div>
+            {tecnico.notas ? (
+              <p className="whitespace-pre-line text-sm text-muted-foreground">{tecnico.notas}</p>
+            ) : null}
           </CardContent>
         </Card>
 

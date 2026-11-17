@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -39,6 +40,8 @@ const emptyForm: FormState = {
   email: "",
   telefono: "",
   activo: true,
+  tieneCedula: false,
+  notas: "",
 }
 
 export function TecnicoFormDialog({
@@ -61,6 +64,8 @@ export function TecnicoFormDialog({
               email: tecnico.email,
               telefono: tecnico.telefono,
               activo: tecnico.activo,
+              tieneCedula: tecnico.tieneCedula,
+              notas: tecnico.notas,
             }
           : emptyForm,
       )
@@ -109,7 +114,7 @@ export function TecnicoFormDialog({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="rol">Rol</FieldLabel>
+                <FieldLabel htmlFor="rol">Puesto</FieldLabel>
                 <Select
                   value={form.rol}
                   onValueChange={(v) => set("rol", v as Tecnico["rol"])}
@@ -166,6 +171,26 @@ export function TecnicoFormDialog({
                 />
               </Field>
             </div>
+
+            <Field>
+              <FieldLabel htmlFor="notas">Observaciones</FieldLabel>
+              <Textarea
+                id="notas"
+                value={form.notas}
+                onChange={(e) => set("notas", e.target.value)}
+                placeholder="Puede ser encargado de brigada, su fuerte son transformadores…"
+                rows={3}
+              />
+            </Field>
+
+            <Field orientation="horizontal">
+              <Switch
+                id="tieneCedula"
+                checked={form.tieneCedula}
+                onCheckedChange={(v) => set("tieneCedula", v)}
+              />
+              <FieldLabel htmlFor="tieneCedula">Tiene cédula profesional</FieldLabel>
+            </Field>
 
             <Field orientation="horizontal">
               <Switch

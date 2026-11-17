@@ -70,6 +70,7 @@ export type MetodoPago =
   | "Otro"
 
 export type RolTecnico =
+  | "Residente de Obra"
   | "Técnico"
   | "Técnico Senior"
   | "Supervisor"
@@ -324,6 +325,10 @@ export interface Tecnico {
   email: string
   telefono: string
   activo: boolean
+  /** Cuenta con cédula profesional. */
+  tieneCedula: boolean
+  /** Observaciones: fortalezas, si puede ser encargado de brigada, etc. */
+  notas: string
 }
 
 // Razón social que opera en el sistema. Cada registro de negocio pertenece a una.
@@ -437,6 +442,7 @@ export const ESTADOS_EQUIPO: EstadoEquipo[] = [
 ]
 
 export const ROLES_TECNICO: RolTecnico[] = [
+  "Residente de Obra",
   "Técnico",
   "Técnico Senior",
   "Supervisor",
