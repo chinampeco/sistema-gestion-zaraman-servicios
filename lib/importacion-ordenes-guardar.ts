@@ -41,12 +41,14 @@ export interface ResultadoOrdenes {
 
 /** Texto de entrega-recepción que se agrega a las observaciones de la orden. */
 export function textoEntrega(o: OrdenLeida, fechaCierre: string): string {
+  // Sin punto final: la frase ya lo agrega (evita "Mtz..").
+  const n = (s: string) => s.trim().replace(/[.\s]+$/, "")
   const partes = [
     `Orden física firmada${fechaCierre ? ` el ${fechaCierre.split("-").reverse().join("/")}` : ""}.`,
-    o.tecnicos.length ? `Entregó: ${o.tecnicos.join(", ")}.` : "",
-    o.verifico ? `Verificó: ${o.verifico}.` : "",
-    o.recibio_area_tecnica ? `Recibió por el área técnica: ${o.recibio_area_tecnica}.` : "",
-    o.recibio_area_usuaria ? `Recibió por el área usuaria: ${o.recibio_area_usuaria}.` : "",
+    o.tecnicos.length ? `Entregó: ${o.tecnicos.map(n).join(", ")}.` : "",
+    o.verifico ? `Verificó: ${n(o.verifico)}.` : "",
+    o.recibio_area_tecnica ? `Recibió por el área técnica: ${n(o.recibio_area_tecnica)}.` : "",
+    o.recibio_area_usuaria ? `Recibió por el área usuaria: ${n(o.recibio_area_usuaria)}.` : "",
     o.observaciones ? `Observaciones de la hoja: ${o.observaciones}` : "",
   ]
   return partes.filter(Boolean).join(" ")
@@ -125,7 +127,10 @@ export async function guardarOrdenesFisicas(
       (actual.trabajo_realizado ?? "").trim() ||
       r.leida.actividades.map((a) => a.texto).filter(Boolean).join("\n") ||
       r.leida.descripcion
-    const observaciones = [String(actual.observaciones ?? "").trim(), r.observaciones.trim()].filter(Boolean).join("\n\n")
+    // Si la orden ya trae la entrega-recepción de la hoja física, no se repite.
+    const previas = String(actual.observaciones ?? "").trim()
+    const nuevas = previas.includes("Orden física firmada") ? "" : r.observaciones.trim()
+    const observaciones = [previas, nuevas].filter(Boolean).join("\n\n")
 
     const { error: errorCierre } = await supabase
       .from("ordenes_servicio")
