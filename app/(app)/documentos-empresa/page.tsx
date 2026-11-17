@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { CalendarCheck, Download, History, Info, Trash2, Upload } from "lucide-react"
+import { CalendarCheck, Download, History, Info, Sparkles, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/components/page-header"
@@ -49,6 +49,8 @@ import {
   type EstadoVigencia,
   type TipoDocumentoEmpresa,
 } from "@/lib/empresa-documentos"
+import { TIPOS_LEIBLES, type LecturaDocumentoEmpresa } from "@/lib/empresa-documentos-lectura"
+import { MAX_BYTES_IMPORTACION } from "@/lib/importacion-contratos"
 
 const ESTILO: Record<EstadoVigencia, "default" | "secondary" | "outline" | "destructive"> = {
   Vigente: "default",
@@ -229,6 +231,7 @@ export default function DocumentosEmpresaPage() {
         abierto={subir.abierto}
         tipoInicial={subir.tipo}
         empresaId={empresaActiva?.id ?? ""}
+        rfcEmpresa={empresaActiva?.rfc ?? ""}
         onCerrar={() => setSubir((s) => ({ ...s, abierto: false }))}
         onSubido={(d) => setDocs((prev) => [d, ...(prev ?? [])])}
       />
@@ -284,12 +287,14 @@ function SubirDocumentoEmpresa({
   abierto,
   tipoInicial,
   empresaId,
+  rfcEmpresa,
   onCerrar,
   onSubido,
 }: {
   abierto: boolean
   tipoInicial: TipoDocumentoEmpresa
   empresaId: string
+  rfcEmpresa: string
   onCerrar: () => void
   onSubido: (d: DocumentoEmpresa) => void
 }) {
@@ -300,9 +305,29 @@ function SubirDocumentoEmpresa({
   const [descripcion, setDescripcion] = React.useState("")
   const [notas, setNotas] = React.useState("")
   const [subiendo, setSubiendo] = React.useState(false)
+  // Lectura con IA: el archivo se sube a una carpeta temporal y se lee ahí.
+  const [leyendo, setLeyendo] = React.useState(false)
+  const [lectura, setLectura] = React.useState<LecturaDocumentoEmpresa | null>(null)
+  const [errorLectura, setErrorLectura] = React.useState<string | null>(null)
+  const loteRef = React.useRef<{ id: string; ruta: string } | null>(null)
+  const intentoRef = React.useRef(0)
+
+  const limpiarLote = React.useCallback(() => {
+    const lote = loteRef.current
+    loteRef.current = null
+    if (!lote) return
+    void fetch("/api/contratos/importacion/limpiar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lote: lote.id }),
+    }).catch(() => undefined)
+  }, [])
 
   React.useEffect(() => {
-    if (!abierto) return
+    if (!abierto) {
+      limpiarLote()
+      return
+    }
     setTipo(tipoInicial)
     setArchivo(null)
     setEmision(hoyISO())
@@ -310,7 +335,10 @@ function SubirDocumentoEmpresa({
     setVigencia(dias ? sumarDias(hoyISO(), dias) : "")
     setDescripcion("")
     setNotas("")
-  }, [abierto, tipoInicial])
+    setLectura(null)
+    setErrorLectura(null)
+    setLeyendo(false)
+  }, [abierto, tipoInicial, limpiarLote])
 
   const cambiarTipo = (t: TipoDocumentoEmpresa) => {
     setTipo(t)
@@ -323,10 +351,58 @@ function SubirDocumentoEmpresa({
     if (dias && f) setVigencia(sumarDias(f, dias))
   }
 
+  /** Sube el archivo a la carpeta temporal y la IA llena tipo, fechas y descripción. */
+  async function leer(f: File) {
+    const intento = ++intentoRef.current
+    limpiarLote()
+    setLectura(null)
+    setErrorLectura(null)
+    if (!TIPOS_LEIBLES.includes(f.type) || f.size > MAX_BYTES_IMPORTACION) return
+    setLeyendo(true)
+    try {
+      const r1 = await fetch("/api/contratos/importacion/subida", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modo: "ordenes", archivos: [{ nombre: f.name, tipo: f.type, tamano: f.size }] }),
+      })
+      const d1 = await r1.json()
+      if (!r1.ok) throw new Error(d1.error ?? "No se pudo preparar la lectura.")
+      const s = d1.subidas[0] as { ruta: string; token: string }
+      loteRef.current = { id: d1.lote, ruta: s.ruta }
+      const { error: e } = await createClient()
+        .storage.from(BUCKET_EXPEDIENTES)
+        .uploadToSignedUrl(s.ruta, s.token, f, { contentType: f.type })
+      if (e) throw new Error("No se pudo subir el archivo para leerlo.")
+      const r2 = await fetch("/api/empresa-documentos/analizar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lote: d1.lote, nombre: f.name }),
+      })
+      const d2 = await r2.json().catch(() => ({ error: "La lectura tardó demasiado." }))
+      if (!r2.ok) throw new Error(d2.error ?? "No se pudo leer el documento.")
+      if (intento !== intentoRef.current) return
+      const l: LecturaDocumentoEmpresa = d2.lectura
+      setLectura(l)
+      if (l.tipo !== "Otro") setTipo(l.tipo)
+      const t = l.tipo !== "Otro" ? l.tipo : tipo
+      const em = l.fecha_emision || emision
+      if (l.fecha_emision) setEmision(l.fecha_emision)
+      const dias = INFO_TIPO[t].vigenciaDias
+      setVigencia(l.vigente_hasta || (dias && em ? sumarDias(em, dias) : ""))
+      if (l.descripcion) setDescripcion(l.descripcion)
+      if (l.sentido) setNotas((n) => n || `Sentido: ${l.sentido}.`)
+    } catch (err) {
+      if (intento === intentoRef.current) setErrorLectura(err instanceof Error ? err.message : "No se pudo leer el documento.")
+    } finally {
+      if (intento === intentoRef.current) setLeyendo(false)
+    }
+  }
+
   async function guardar(e: React.FormEvent) {
     e.preventDefault()
     if (!empresaId) return toast.error("Selecciona una empresa.")
     if (!archivo) return toast.error("Elige el archivo.")
+    if (leyendo) return toast.error("Espera a que termine la lectura del documento.")
     if (archivo.size > TAMANO_MAXIMO_DOCUMENTO) return toast.error("El archivo pesa más de 25 MB.")
     if (archivo.type && !TIPOS_ARCHIVO_PERMITIDOS.includes(archivo.type))
       return toast.error("Formato no permitido. Usa PDF, Word, Excel, XML o imagen.")
@@ -335,9 +411,13 @@ function SubirDocumentoEmpresa({
     setSubiendo(true)
     const supabase = createClient()
     const ruta = `${empresaId}/empresa/${Date.now()}-${nombreArchivoSeguro(archivo.name)}`
-    const { error: errorArchivo } = await supabase.storage
-      .from(BUCKET_EXPEDIENTES)
-      .upload(ruta, archivo, { contentType: archivo.type || undefined, upsert: false })
+    // Si ya se subió para leerlo, se copia de la carpeta temporal; si no, se sube.
+    const temporal = loteRef.current
+    const { error: errorArchivo } = temporal
+      ? await supabase.storage.from(BUCKET_EXPEDIENTES).copy(temporal.ruta, ruta)
+      : await supabase.storage
+          .from(BUCKET_EXPEDIENTES)
+          .upload(ruta, archivo, { contentType: archivo.type || undefined, upsert: false })
     if (errorArchivo) {
       setSubiendo(false)
       return toast.error("No se pudo subir el archivo.")
@@ -362,22 +442,79 @@ function SubirDocumentoEmpresa({
       await supabase.storage.from(BUCKET_EXPEDIENTES).remove([ruta])
       return toast.error("El archivo subió, pero no se pudo registrar.")
     }
+    limpiarLote()
     toast.success("Documento guardado.")
     onSubido(mapDocumentoEmpresa(data))
     onCerrar()
   }
 
   const info = INFO_TIPO[tipo]
+  const rfcLeido = lectura?.rfc ?? ""
+  const rfcDistinto = !!rfcLeido && !!rfcEmpresa && rfcLeido !== rfcEmpresa.toUpperCase().replace(/[^A-ZÑ&0-9]/g, "")
 
   return (
     <Dialog open={abierto} onOpenChange={(o) => !o && onCerrar()}>
-      <DialogContent className="sm:max-w-lg">
-        <form onSubmit={guardar}>
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 sm:max-w-lg">
+        <form onSubmit={guardar} className="flex min-h-0 flex-1 flex-col">
           <DialogHeader>
             <DialogTitle>Subir documento de la empresa</DialogTitle>
-            <DialogDescription>Se guarda en el expediente privado de la empresa activa.</DialogDescription>
+            <DialogDescription>
+              Elige el archivo: la IA lo lee y llena el tipo y las fechas. Revísalas antes de guardar.
+            </DialogDescription>
           </DialogHeader>
-          <FieldGroup className="py-4">
+          <FieldGroup className="min-h-0 flex-1 overflow-y-auto py-4">
+            <Field>
+              <FieldLabel htmlFor="de-archivo">Archivo</FieldLabel>
+              <Input
+                id="de-archivo"
+                type="file"
+                accept={ACCEPT_DOCUMENTOS}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null
+                  setArchivo(f)
+                  if (f) void leer(f)
+                }}
+              />
+              <FieldDescription>
+                PDF, imagen, Word o Excel. Máximo 25 MB. Los PDF y las fotos se leen automáticamente.
+              </FieldDescription>
+            </Field>
+
+            {leyendo && (
+              <Alert>
+                <Spinner />
+                <AlertTitle>Leyendo el documento…</AlertTitle>
+                <AlertDescription>Tarda unos segundos. Puedes ir revisando los datos.</AlertDescription>
+              </Alert>
+            )}
+            {errorLectura && (
+              <Alert>
+                <Info />
+                <AlertTitle>No se leyó automáticamente</AlertTitle>
+                <AlertDescription>{errorLectura} Captura el tipo y las fechas a mano.</AlertDescription>
+              </Alert>
+            )}
+            {lectura && (
+              <Alert variant={rfcDistinto || lectura.sentido === "Negativo" ? "destructive" : "default"}>
+                <Sparkles />
+                <AlertTitle>Leído del documento</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc pl-5">
+                    <li>{lectura.tipo}{lectura.folio ? ` · folio ${lectura.folio}` : ""}</li>
+                    {lectura.razon_social || lectura.rfc ? (
+                      <li>{[lectura.razon_social, lectura.rfc && `RFC ${lectura.rfc}`].filter(Boolean).join(" · ")}</li>
+                    ) : null}
+                    {lectura.sentido && <li>Sentido: <strong>{lectura.sentido}</strong></li>}
+                    {lectura.fecha_emision && <li>Emitido el {formatFecha(lectura.fecha_emision)}</li>}
+                    {lectura.vigente_hasta && <li>Vigente hasta el {formatFecha(lectura.vigente_hasta)} (según el documento)</li>}
+                    {rfcDistinto && <li><strong>El RFC no es el de esta empresa ({rfcEmpresa}).</strong> Revisa que hayas elegido la empresa correcta.</li>}
+                    {lectura.sentido === "Negativo" && <li><strong>La opinión es NEGATIVA:</strong> no sirve para licitar.</li>}
+                    {lectura.advertencias.map((a, i) => <li key={i}>{a}</li>)}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Field>
               <FieldLabel>Documento</FieldLabel>
               <Select value={tipo} onValueChange={(v) => cambiarTipo(v as TipoDocumentoEmpresa)}>
@@ -386,16 +523,7 @@ function SubirDocumentoEmpresa({
                   {TIPOS_DOCUMENTO_EMPRESA.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </Field>
-            <Alert>
-              <Info />
-              <AlertTitle>Dónde se obtiene</AlertTitle>
-              <AlertDescription>{info.ayuda}</AlertDescription>
-            </Alert>
-            <Field>
-              <FieldLabel htmlFor="de-archivo">Archivo</FieldLabel>
-              <Input id="de-archivo" type="file" accept={ACCEPT_DOCUMENTOS} onChange={(e) => setArchivo(e.target.files?.[0] ?? null)} />
-              <FieldDescription>PDF, imagen, Word o Excel. Máximo 25 MB.</FieldDescription>
+              <FieldDescription>{info.ayuda}</FieldDescription>
             </Field>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field>
@@ -421,8 +549,8 @@ function SubirDocumentoEmpresa({
           </FieldGroup>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onCerrar}>Cancelar</Button>
-            <Button type="submit" disabled={subiendo}>
-              {subiendo && <Spinner data-icon="inline-start" />}
+            <Button type="submit" disabled={subiendo || leyendo}>
+              {(subiendo || leyendo) && <Spinner data-icon="inline-start" />}
               Guardar
             </Button>
           </DialogFooter>
