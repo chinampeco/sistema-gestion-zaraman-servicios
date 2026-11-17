@@ -21,6 +21,7 @@ import {
   MessageCircle,
   Boxes,
   FileSignature,
+  FolderCheck,
 } from "lucide-react"
 
 import {
@@ -73,6 +74,7 @@ const navFinanzas: NavItem[] = [
 ]
 
 const navGestion: NavItem[] = [
+  { title: "Documentos de la empresa", href: "/documentos-empresa", icon: FolderCheck, modulo: "documentos" },
   { title: "Reportes", href: "/reportes", icon: BarChart3, modulo: "reportes" },
   { title: "Configuración", href: "/configuracion", icon: Settings, modulo: "configuracion" },
 ]
