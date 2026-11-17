@@ -69,9 +69,12 @@ export default function OrdenDetailPage() {
           description={cliente?.nombre}
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" render={<Link href={`/ordenes/${orden.id}/reporte`} />} nativeButton={false}>
+              <Button variant="outline" render={<Link href={`/ordenes/${orden.id}/hoja`} />} nativeButton={false}>
                 <FileText data-icon="inline-start" />
-                Reporte PDF
+                Hoja de servicio (PDF)
+              </Button>
+              <Button variant="ghost" render={<Link href={`/ordenes/${orden.id}/reporte`} />} nativeButton={false}>
+                Reporte detallado
               </Button>
               {puedeGestionarOrden ? (
                 <Button variant="outline" onClick={() => setEditOpen(true)}>

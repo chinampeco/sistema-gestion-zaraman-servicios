@@ -205,6 +205,14 @@ export interface OrdenServicio extends Ubicacion {
   observaciones: string
   firmaCliente: string
   firmaFecha: string | null
+  /** Nombre y cargo de quien firma por el área usuaria. */
+  firmaClienteNombre?: string
+  /** Firma del área técnica de la dependencia (si el contrato la pide). */
+  firmaAreaTecnica?: string
+  firmaAreaTecnicaNombre?: string
+  firmaAreaTecnicaFecha?: string | null
+  /** Escaneo firmado (órdenes que se suben como historial). */
+  documentoFirmadoId?: string | null
   cerradaPor: string | null
   creadoPor: string
   ticketId: string | null

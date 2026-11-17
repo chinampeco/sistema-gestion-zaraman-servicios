@@ -147,6 +147,11 @@ export function mapOrden(row: Record<string, any>): OrdenServicio {
     horaProgramada: row.hora_programada ?? null,
     firmaCliente: txt(row.firma_cliente),
     firmaFecha: row.firma_fecha ?? null,
+    firmaClienteNombre: txt(row.firma_cliente_nombre),
+    firmaAreaTecnica: txt(row.firma_area_tecnica),
+    firmaAreaTecnicaNombre: txt(row.firma_area_tecnica_nombre),
+    firmaAreaTecnicaFecha: row.firma_area_tecnica_fecha ?? null,
+    documentoFirmadoId: row.documento_firmado_id ?? null,
     cerradaPor: row.cerrada_por ?? null,
     creadoPor: txt(row.creado_por),
     ticketId: row.ticket_id ?? null,
@@ -492,6 +497,10 @@ export function ordenToDb(data: Partial<OrdenServicio>): Record<string, any> {
   if (data.horaProgramada !== undefined) out.hora_programada = data.horaProgramada || null
   if (data.firmaCliente !== undefined) out.firma_cliente = data.firmaCliente
   if (data.firmaFecha !== undefined) out.firma_fecha = data.firmaFecha
+  if (data.firmaClienteNombre !== undefined) out.firma_cliente_nombre = data.firmaClienteNombre || null
+  if (data.firmaAreaTecnica !== undefined) out.firma_area_tecnica = data.firmaAreaTecnica || null
+  if (data.firmaAreaTecnicaNombre !== undefined) out.firma_area_tecnica_nombre = data.firmaAreaTecnicaNombre || null
+  if (data.firmaAreaTecnicaFecha !== undefined) out.firma_area_tecnica_fecha = data.firmaAreaTecnicaFecha
   if (data.cerradaPor !== undefined) out.cerrada_por = data.cerradaPor || null
   if (data.creadoPor !== undefined) out.creado_por = data.creadoPor || null
   if (data.ticketId !== undefined) out.ticket_id = data.ticketId || null

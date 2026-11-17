@@ -64,7 +64,7 @@ export async function guardarOrdenesFisicas(
   const pasos: string[] = []
   const errores: string[] = []
   // archivo → contrato → folios cerrados (para registrar el escaneo una vez por contrato).
-  const documentos = new Map<string, { archivo: ArchivoLote; contratoId: string; folios: string[] }>()
+  const documentos = new Map<string, { archivo: ArchivoLote; contratoId: string; folios: string[]; ordenIds: string[] }>()
 
   for (const [n, r] of revisadas.entries()) {
     const etiqueta = r.leida.referencia || r.leida.folio || `orden ${n + 1}`
@@ -183,7 +183,8 @@ export async function guardarOrdenesFisicas(
     const archivo = archivos.find((a) => a.indice === r.archivoIndice)
     if (archivo && actual.contrato_id) {
       const k = `${archivo.indice}|${actual.contrato_id}`
-      const doc = documentos.get(k) ?? { archivo, contratoId: actual.contrato_id as string, folios: [] }
+      const doc = documentos.get(k) ?? { archivo, contratoId: actual.contrato_id as string, folios: [], ordenIds: [] }
+      doc.ordenIds.push(ordenId)
       doc.folios.push(`${actual.folio}${r.leida.referencia ? ` (${r.leida.referencia})` : ""}`)
       documentos.set(k, doc)
     } else if (archivo) {
@@ -193,24 +194,37 @@ export async function guardarOrdenesFisicas(
 
   // 5. Escaneos al expediente (una vez por archivo y contrato).
   if (documentos.size) avance("Guardando los escaneos en el expediente…")
-  for (const { archivo, contratoId, folios } of documentos.values()) {
+  for (const { archivo, contratoId, folios, ordenIds } of documentos.values()) {
     const destino = `${usuario.empresaId}/${contratoId}/${Date.now()}-orden-${nombreArchivoSeguro(archivo.nombre)}`
     const { error: errorCopia } = await supabase.storage.from(BUCKET_EXPEDIENTES).copy(archivo.ruta, destino)
     if (errorCopia) {
       errores.push(`No se pudo guardar “${archivo.nombre}” en el expediente.`)
       continue
     }
-    const { error } = await supabase.from("contrato_documentos").insert({
-      contrato_id: contratoId,
-      tipo: "Informe de servicio",
-      nombre_archivo: archivo.nombre,
-      storage_path: destino,
-      mime_type: archivo.tipo,
-      tamano_bytes: archivo.tamano,
-      notas: `Orden de servicio firmada: ${folios.join(", ")}.`,
-    })
-    if (error) errores.push(`No se pudo registrar “${archivo.nombre}” en el expediente.`)
-    else pasos.push(`Escaneo “${archivo.nombre}” guardado en el expediente del contrato.`)
+    const { data: doc, error } = await supabase
+      .from("contrato_documentos")
+      .insert({
+        contrato_id: contratoId,
+        tipo: "Informe de servicio",
+        nombre_archivo: archivo.nombre,
+        storage_path: destino,
+        mime_type: archivo.tipo,
+        tamano_bytes: archivo.tamano,
+        notas: `Orden de servicio firmada: ${folios.join(", ")}.`,
+      })
+      .select("id")
+      .single()
+    if (error || !doc) {
+      errores.push(`No se pudo registrar “${archivo.nombre}” en el expediente.`)
+      continue
+    }
+    // La orden queda ligada a su escaneo: el técnico y el cliente lo pueden descargar.
+    const { error: errorLiga } = await supabase
+      .from("ordenes_servicio")
+      .update({ documento_firmado_id: doc.id })
+      .in("id", ordenIds)
+    if (errorLiga) errores.push(`“${archivo.nombre}” se guardó, pero no quedó ligado a su orden.`)
+    pasos.push(`Escaneo “${archivo.nombre}” guardado en el expediente y ligado a su orden.`)
   }
 
   return { pasos, errores }

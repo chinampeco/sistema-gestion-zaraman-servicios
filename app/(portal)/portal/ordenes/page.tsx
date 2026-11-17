@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { ClipboardList } from "lucide-react"
+import Link from "next/link"
+import { ClipboardList, Download } from "lucide-react"
 
 import { useStore } from "@/lib/store"
 import { Card, CardContent } from "@/components/ui/card"
@@ -189,6 +190,13 @@ export default function PortalOrdenesPage() {
                 )}
 
                 <Dato label="Observaciones" valor={sel.observaciones} />
+
+                {sel.estado === "Terminada" && (
+                  <Button className="self-start" render={<Link href={`/portal/ordenes/${sel.id}/hoja`} />} nativeButton={false}>
+                    <Download data-icon="inline-start" />
+                    {sel.documentoFirmadoId ? "Ver y descargar la orden firmada" : "Descargar hoja de servicio (PDF)"}
+                  </Button>
+                )}
 
                 {sel.firmaCliente && (
                   <div className="flex flex-col gap-1.5">
