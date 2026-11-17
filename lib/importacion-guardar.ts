@@ -19,17 +19,32 @@ export interface ArchivoLote {
 
 export interface OpcionesGuardado {
   clienteId: string | null
-  nuevoCliente: { nombre: string; rfc: string; direccion: string } | null
+  nuevoCliente: NuevoClienteImportacion | null
   crearEquipos: boolean
   crearOrdenes: boolean
   usuarioId: string
   empresaId: string
 }
 
+/** Área usuaria que se registra como cliente nuevo. */
+export interface NuevoClienteImportacion {
+  nombre: string
+  rfc: string
+  direccion: string
+  contacto: string
+  email: string
+  telefono: string
+  /** Dependencia a la que pertenece el área usuaria. */
+  dependencia: string
+}
+
 export interface ResultadoGuardado {
   contratoId: string | null
   pasos: string[]
   error: string | null
+  /** Cliente con el que quedó el contrato (nuevo o existente). */
+  clienteId: string | null
+  clienteNuevo: boolean
 }
 
 // Tope de equipos generados por renglón cuando la ficha da solo una cantidad.
@@ -45,30 +60,37 @@ export async function guardarImportacion(
   avance: (mensaje: string) => void,
 ): Promise<ResultadoGuardado> {
   const pasos: string[] = []
+  let clienteId = op.clienteId
   const falla = (mensaje: string, contratoId: string | null = null): ResultadoGuardado => ({
     contratoId,
     pasos,
     error: mensaje,
+    clienteId,
+    clienteNuevo: !op.clienteId && !!clienteId,
   })
 
-  // 1. Cliente / dependencia
-  let clienteId = op.clienteId
+  // 1. Cliente = área usuaria del contrato
   if (!clienteId) {
-    if (!op.nuevoCliente?.nombre.trim()) return falla("Indica la dependencia (cliente).")
-    avance("Registrando la dependencia…")
+    const n = op.nuevoCliente
+    if (!n?.nombre.trim()) return falla("Indica el área usuaria (cliente).")
+    avance("Registrando el área usuaria como cliente…")
     const { data, error } = await supabase
       .from("clientes")
       .insert({
-        nombre: op.nuevoCliente.nombre.trim(),
-        rfc: op.nuevoCliente.rfc.trim().toUpperCase(),
-        direccion: op.nuevoCliente.direccion.trim(),
+        nombre: n.nombre.trim(),
+        rfc: n.rfc.trim().toUpperCase(),
+        direccion: n.direccion.trim(),
+        contacto: n.contacto.trim() || null,
+        email: n.email.trim().toLowerCase() || null,
+        telefono: n.telefono.trim() || null,
+        notas: n.dependencia.trim() ? `Dependencia: ${n.dependencia.trim()}` : null,
         tipo: "Gobierno",
       })
       .select("id")
       .single()
-    if (error || !data) return falla("No se pudo registrar la dependencia.")
+    if (error || !data) return falla("No se pudo registrar el área usuaria como cliente.")
     clienteId = data.id as string
-    pasos.push(`Dependencia “${op.nuevoCliente.nombre.trim()}” registrada como cliente de gobierno.`)
+    pasos.push(`Área usuaria “${n.nombre.trim()}” registrada como cliente de gobierno.`)
   }
 
   // 2. Contrato
@@ -289,5 +311,5 @@ export async function guardarImportacion(
     pasos.push(`${ex.garantias.length} garantía(s) registradas.`)
   }
 
-  return { contratoId, pasos, error: null }
+  return { contratoId, pasos, error: null, clienteId, clienteNuevo: !op.clienteId }
 }

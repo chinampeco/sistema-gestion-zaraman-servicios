@@ -23,6 +23,8 @@ Reglas generales
 - Copia nombres, números y textos tal como aparecen (respeta acentos y mayúsculas del documento). No inventes datos: si algo no aparece, usa "" o null.
 - Fechas en formato AAAA-MM-DD. Montos como número, sin comas ni signo de pesos.
 - "dependencia" es el CLIENTE (la institución contratante, p. ej. "Secretaría de la Defensa Nacional"), no el proveedor. Su RFC suele estar en las declaraciones de la dependencia.
+- dependencia.area_usuaria: el ÁREA USUARIA del contrato, es decir, la unidad que recibe el servicio y firma de conformidad (p. ej. "Centro Militar de Ciencias de la Salud", "Hospital Central Militar"). En el sistema ella queda como el cliente. Búscala como "área usuaria", "área requirente y usuaria", "unidad usuaria" o "lugar de prestación del servicio". Si el contrato no la nombra, usa el área requirente. area_usuaria_domicilio: su domicilio, si aparece.
+- contacto_email y contacto_telefono: los del administrador o responsable del área usuaria, si vienen.
 - subtotal = monto antes de IVA; iva = impuesto; total = con IVA.
 - Porcentajes como número (10 = 10 %). Garantía de cumplimiento: porcentaje sobre el monto sin IVA. Garantía de calidad: vigencia en meses. Pena convencional: porcentaje diario y tope máximo.
 - procedimiento: elige el valor de la lista que corresponda ("Invitación a cuando menos tres personas", "Licitación pública", "Adjudicación directa" u "Otro").
