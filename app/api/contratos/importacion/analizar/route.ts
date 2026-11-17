@@ -1,5 +1,4 @@
 import Anthropic from "@anthropic-ai/sdk"
-import mammoth from "mammoth"
 import { NextResponse } from "next/server"
 
 import { BUCKET_EXPEDIENTES } from "@/lib/contratos"
@@ -8,12 +7,13 @@ import {
   MAX_ARCHIVOS_IMPORTACION,
   normalizarExtraccion,
 } from "@/lib/importacion-contratos"
+import { bloquesDeArchivo, extraerJson, MODELO_LECTURA, type Bloque } from "@/lib/importacion-ia"
 import { adminClient, carpetaLote, esUuid, requerirGestor } from "@/lib/importacion-servidor"
 
 // Un contrato escaneado de ~20 páginas puede tardar un par de minutos.
 export const maxDuration = 300
 
-const MODELO = "claude-opus-5-5"
+const MODELO = MODELO_LECTURA
 
 const INSTRUCCIONES = `Eres el analista de contratos de una empresa mexicana de servicios de mantenimiento industrial que trabaja para dependencias de gobierno (SEDENA, ISSFAM, CFE, PEMEX, IMSS, etc.) bajo la Ley de Adquisiciones, Arrendamientos y Servicios del Sector Público (LAASSP).
 
@@ -59,22 +59,6 @@ const FORMATO_RESPUESTA = `Formato de la respuesta
 Responde ÚNICAMENTE con un objeto JSON válido (sin texto antes ni después, sin bloques de código) que cumpla este JSON Schema. Usa exactamente estos nombres de campo y, en los campos con "enum", solo esos valores:
 ${JSON.stringify(ESQUEMA_EXTRACCION)}`
 
-/** Toma el objeto JSON de la respuesta aunque venga entre \`\`\` o con texto alrededor. */
-function extraerJson(texto: string): string {
-  const inicio = texto.indexOf("{")
-  const fin = texto.lastIndexOf("}")
-  return inicio >= 0 && fin > inicio ? texto.slice(inicio, fin + 1) : texto
-}
-
-type Bloque = Anthropic.Beta.BetaContentBlockParam
-
-function tipoPorFirma(bytes: Uint8Array): "pdf" | "docx" | "jpeg" | "png" | null {
-  if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "pdf"
-  if (bytes[0] === 0x50 && bytes[1] === 0x4b) return "docx"
-  if (bytes[0] === 0xff && bytes[1] === 0xd8) return "jpeg"
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "png"
-  return null
-}
 
 export async function POST(request: Request) {
   const sesion = await requerirGestor()
@@ -114,33 +98,11 @@ export async function POST(request: Request) {
     }
     const buffer = Buffer.from(await blob.arrayBuffer())
     const titulo = `Archivo ${f.indice}: ${String(nombres[f.indice]).slice(0, 200)}`
-    const tipo = tipoPorFirma(buffer)
-    if (tipo === "pdf") {
-      contenido.push({
-        type: "document",
-        title: titulo,
-        source: { type: "base64", media_type: "application/pdf", data: buffer.toString("base64") },
-      })
-    } else if (tipo === "docx") {
-      // Word no se envía tal cual: se convierte a HTML (conserva las tablas) sin imágenes.
-      const { value: html } = await mammoth.convertToHtml(
-        { buffer },
-        { convertImage: mammoth.images.imgElement(async () => ({ src: "" })) },
-      )
-      contenido.push({
-        type: "document",
-        title: titulo,
-        source: { type: "text", media_type: "text/plain", data: html || "(documento vacío)" },
-      })
-    } else if (tipo === "jpeg" || tipo === "png") {
-      contenido.push({ type: "text", text: titulo })
-      contenido.push({
-        type: "image",
-        source: { type: "base64", media_type: tipo === "png" ? "image/png" : "image/jpeg", data: buffer.toString("base64") },
-      })
-    } else {
+    const bloques = await bloquesDeArchivo(buffer, titulo)
+    if (!bloques) {
       return NextResponse.json({ error: `“${String(nombres[f.indice])}” no es PDF, Word ni imagen.` }, { status: 400 })
     }
+    contenido.push(...bloques)
   }
   contenido.push({
     type: "text",

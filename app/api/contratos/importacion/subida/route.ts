@@ -8,6 +8,7 @@ import {
   MAX_BYTES_TOTAL_IMPORTACION,
   TIPOS_LECTURA,
 } from "@/lib/importacion-contratos"
+import { MAX_ARCHIVOS_ORDENES, MAX_BYTES_TOTAL_ORDENES } from "@/lib/importacion-ordenes"
 import { adminClient, carpetaLote, requerirGestor } from "@/lib/importacion-servidor"
 
 // Paso 1: el servidor reserva rutas en la carpeta temporal y devuelve URLs de
@@ -19,11 +20,18 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null)
   const archivos: unknown = body?.archivos
+  // "ordenes": órdenes físicas firmadas (más archivos, cada uno se lee por separado).
+  const ordenes = body?.modo === "ordenes"
+  const maxArchivos = ordenes ? MAX_ARCHIVOS_ORDENES : MAX_ARCHIVOS_IMPORTACION
+  const maxTotal = ordenes ? MAX_BYTES_TOTAL_ORDENES : MAX_BYTES_TOTAL_IMPORTACION
   if (!Array.isArray(archivos) || archivos.length === 0) {
     return NextResponse.json({ error: "Agrega al menos un archivo." }, { status: 400 })
   }
-  if (archivos.length > MAX_ARCHIVOS_IMPORTACION) {
-    return NextResponse.json({ error: `Máximo ${MAX_ARCHIVOS_IMPORTACION} archivos por contrato.` }, { status: 400 })
+  if (archivos.length > maxArchivos) {
+    return NextResponse.json(
+      { error: `Máximo ${maxArchivos} archivos ${ordenes ? "por lote" : "por contrato"}.` },
+      { status: 400 },
+    )
   }
 
   let total = 0
@@ -41,9 +49,9 @@ export async function POST(request: Request) {
     total += tamano
     lista.push({ nombre, tipo, tamano })
   }
-  if (total > MAX_BYTES_TOTAL_IMPORTACION) {
+  if (total > maxTotal) {
     return NextResponse.json(
-      { error: `Los archivos suman más de ${MAX_BYTES_TOTAL_IMPORTACION / 1024 / 1024} MB.` },
+      { error: `Los archivos suman más de ${maxTotal / 1024 / 1024} MB.` },
       { status: 400 },
     )
   }
