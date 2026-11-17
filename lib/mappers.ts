@@ -314,6 +314,8 @@ export function mapTecnico(row: Record<string, any>): Tecnico {
   email: txt(row.email),
   telefono: txt(row.telefono),
   activo: row.activo ?? true,
+  tieneCedula: row.tiene_cedula ?? false,
+  notas: txt(row.notas),
   }
   }
 
@@ -575,6 +577,8 @@ export function tecnicoToDb(data: Partial<Tecnico>): Record<string, any> {
   if (data.email !== undefined) out.email = data.email
   if (data.telefono !== undefined) out.telefono = data.telefono
   if (data.activo !== undefined) out.activo = data.activo
+  if (data.tieneCedula !== undefined) out.tiene_cedula = data.tieneCedula
+  if (data.notas !== undefined) out.notas = data.notas || null
   return out
   }
 

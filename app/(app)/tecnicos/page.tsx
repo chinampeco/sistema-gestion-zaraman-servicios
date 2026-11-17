@@ -72,7 +72,7 @@ export default function TecnicosPage() {
           <div className="relative max-w-sm">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre, rol o especialidad…"
+              placeholder="Buscar por nombre, puesto o especialidad…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-8"
@@ -97,7 +97,7 @@ export default function TecnicosPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Técnico</TableHead>
-                    <TableHead className="hidden md:table-cell">Rol</TableHead>
+                    <TableHead className="hidden md:table-cell">Puesto</TableHead>
                     <TableHead className="hidden lg:table-cell">
                       Especialidad
                     </TableHead>
@@ -128,7 +128,10 @@ export default function TecnicosPage() {
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          {t.rol}
+                          <div>{t.rol}</div>
+                          {t.tieneCedula ? (
+                            <div className="text-xs text-muted-foreground">Con cédula profesional</div>
+                          ) : null}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           <div className="font-medium">{t.especialidad || "—"}</div>
