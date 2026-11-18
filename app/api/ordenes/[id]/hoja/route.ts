@@ -74,6 +74,21 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     }
   }
 
+  // Fotos de evidencia: bucket privado, enlaces temporales solo de la carpeta de esta orden.
+  const listaEvidencias: any[] = (Array.isArray(o.evidencias) ? o.evidencias : []).filter(
+    (ev: any) => typeof ev?.path === "string" && ev.path.startsWith(`${o.id}/`),
+  )
+  let fotos: HojaOrden["evidencias"] = []
+  if (listaEvidencias.length) {
+    const { data: firmadas } = await admin.storage
+      .from("evidencias")
+      .createSignedUrls(listaEvidencias.map((ev) => ev.path as string), 3600)
+    const urlPorPath = new Map((firmadas ?? []).map((f) => [f.path, f.signedUrl]))
+    fotos = listaEvidencias
+      .map((ev) => ({ url: urlPorPath.get(ev.path) ?? "", descripcion: txt(ev.descripcion), fase: txt(ev.fase) }))
+      .filter((f) => f.url)
+  }
+
   const hoja: HojaOrden = {
     empresa: {
       clave: txt(e.clave),
@@ -137,9 +152,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       areaTecnicaNombre: txt(o.firma_area_tecnica_nombre),
       areaTecnicaFecha: o.firma_area_tecnica_fecha ?? null,
     },
-    evidencias: (Array.isArray(o.evidencias) ? o.evidencias : [])
-      .filter((ev: any) => typeof ev?.url === "string" && /^https?:\/\//.test(ev.url))
-      .map((ev: any) => ({ url: ev.url as string, descripcion: txt(ev.descripcion), fase: txt(ev.fase) })),
+    evidencias: fotos,
     documentoFirmado: documento.data ? { nombre: txt(documento.data.nombre_archivo) } : null,
   }
   return NextResponse.json({ hoja })
