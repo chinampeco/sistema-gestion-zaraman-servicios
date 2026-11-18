@@ -7,6 +7,7 @@ import type { Cliente, Equipo, OrdenServicio, Tecnico } from "@/lib/types"
 import { formatFecha, formatFechaHora, formatHora } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { getFirmaTecnico } from "@/components/ordenes/orden-firma"
+import { useUrlsEvidencias } from "@/lib/evidencias-urls"
 
 interface ReporteServicioPrintProps {
   orden: OrdenServicio
@@ -16,6 +17,7 @@ interface ReporteServicioPrintProps {
 }
 
 export function ReporteServicioPrint({ orden, cliente, equipo, tecnico }: ReporteServicioPrintProps) {
+  const urlsEvidencias = useUrlsEvidencias(orden.evidencias)
   const imprimir = () => {
     const tituloOriginal = document.title
     document.title = `ZARAMAN SERVICIOS - ${orden.folio}`
@@ -129,7 +131,7 @@ export function ReporteServicioPrint({ orden, cliente, equipo, tecnico }: Report
             <div className="print-evidence-grid">
               {orden.evidencias.map((evidencia) => (
                 <figure key={evidencia.id}>
-                  <img src={evidencia.url} alt={evidencia.descripcion || evidencia.fase} />
+                  <img src={urlsEvidencias[evidencia.path] || ""} alt={evidencia.descripcion || evidencia.fase} />
                   <figcaption><strong>{evidencia.fase}</strong>{evidencia.descripcion ? ` · ${evidencia.descripcion}` : ""}</figcaption>
                 </figure>
               ))}

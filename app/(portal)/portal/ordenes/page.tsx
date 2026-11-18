@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { EstadoOrdenBadge, PrioridadBadge } from "@/components/status-badges"
+import { useUrlsEvidencias } from "@/lib/evidencias-urls"
 import { formatFecha } from "@/lib/format"
 import type { OrdenServicio } from "@/lib/types"
 
@@ -38,6 +39,7 @@ function Dato({ label, valor }: { label: string; valor: React.ReactNode }) {
 export default function PortalOrdenesPage() {
   const { ordenes, equipos, tecnicos, cargando } = useStore()
   const [sel, setSel] = React.useState<OrdenServicio | null>(null)
+  const urlsEvidencias = useUrlsEvidencias(sel?.evidencias)
 
   const lista = [...ordenes].sort((a, b) => (b.fechaSolicitud ?? "").localeCompare(a.fechaSolicitud ?? ""))
 
@@ -172,14 +174,14 @@ export default function PortalOrdenesPage() {
                       {sel.evidencias.map((ev, i) => (
                         <a
                           key={i}
-                          href={ev.url}
+                          href={urlsEvidencias[ev.path] || "#"}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="group relative aspect-square overflow-hidden rounded-md border"
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={ev.url || "/placeholder.svg"}
+                            src={urlsEvidencias[ev.path] || "/placeholder.svg"}
                             alt={ev.descripcion || `Evidencia ${i + 1}`}
                             className="size-full object-cover transition-transform group-hover:scale-105"
                           />

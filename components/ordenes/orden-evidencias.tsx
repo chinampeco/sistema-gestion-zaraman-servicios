@@ -16,6 +16,7 @@ import {
 import { useStore } from "@/lib/store"
 import { puedeReasignarOrdenes } from "@/lib/permisos"
 import { createClient } from "@/lib/supabase/client"
+import { BUCKET_EVIDENCIAS, useUrlsEvidencias } from "@/lib/evidencias-urls"
 import { hoyISO } from "@/lib/format"
 import {
   FASES_EVIDENCIA,
@@ -24,13 +25,12 @@ import {
   type OrdenServicio,
 } from "@/lib/types"
 
-const BUCKET = "evidencias"
+const BUCKET = BUCKET_EVIDENCIAS
 
 export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
   const { actualizarOrden, usuarioActual } = useStore()
   const [fase, setFase] = React.useState<FaseEvidencia>("Durante")
   const [subiendo, setSubiendo] = React.useState(false)
-  const [urls, setUrls] = React.useState<Record<string, string>>({})
   const inputRef = React.useRef<HTMLInputElement>(null)
   const bloqueada = Boolean(orden.firmaCliente)
   const esTecnicoAsignado =
@@ -40,29 +40,7 @@ export function OrdenEvidencias({ orden }: { orden: OrdenServicio }) {
   const puedeEditar = !bloqueada && (esTecnicoAsignado || puedeReasignarOrdenes(usuarioActual.rol))
 
   const evidencias = orden.evidencias
-
-  React.useEffect(() => {
-    let activo = true
-    const cargarUrls = async () => {
-      const supabase = createClient()
-      const entradas = await Promise.all(
-        evidencias
-          .filter((ev) => Boolean(ev.path))
-          .map(async (ev) => {
-            const { data, error } = await supabase.storage
-              .from(BUCKET)
-              .createSignedUrl(ev.path, 3600)
-            return error || !data?.signedUrl ? null : [ev.path, data.signedUrl] as const
-          }),
-      )
-      if (!activo) return
-      setUrls(Object.fromEntries(entradas.filter(Boolean) as Array<readonly [string, string]>))
-    }
-    void cargarUrls()
-    return () => {
-      activo = false
-    }
-  }, [evidencias])
+  const urls = useUrlsEvidencias(evidencias)
 
   const handleUpload = async (files: FileList | null) => {
     if (!puedeEditar) {
