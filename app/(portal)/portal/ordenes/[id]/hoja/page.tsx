@@ -12,6 +12,7 @@ export default function PortalHojaOrdenPage() {
   return (
     <HojaOrdenVista
       ordenId={id}
+      rutaDocumentos={`/portal/ordenes/${id}/documentos`}
       alVolver={
         <Button variant="ghost" render={<Link href="/portal/ordenes" />} nativeButton={false}>
           <ArrowLeft data-icon="inline-start" />

@@ -5,9 +5,11 @@
 // con lo que el técnico registró en campo y las firmas capturadas al cerrar.
 
 import * as React from "react"
-import { Download, Printer } from "lucide-react"
+import Link from "next/link"
+import { Download, FileText, Printer } from "lucide-react"
 import { toast } from "sonner"
 
+import { DOCUMENTOS_CIERRE } from "@/components/ordenes/documentos-cierre"
 import { Button } from "@/components/ui/button"
 import { fechaCorta, type HojaEquipo, type HojaOrden } from "@/lib/hoja-orden"
 
@@ -96,55 +98,13 @@ const marcaPrincipal = (h: HojaOrden) => [...new Set(h.equipos.map((e) => e.marc
 
 // ---------------------------------------------------------------------------
 
-/**
- * Logo de Toltecatl redibujado en vectorial (letras, líneas y arco nítidos al
- * imprimir); solo la cabeza del dragón es imagen.
- */
-function LogoToltecatl() {
-  return (
-    <svg viewBox="0 0 800 210" className="ho-tol-logo" role="img" aria-label="Ingeniería y Mantenimiento Toltecatl Industrial">
-      <defs>
-        <linearGradient id="ho-arco" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#b8bcc4" />
-          <stop offset="0.5" stopColor="#6b7280" />
-          <stop offset="1" stopColor="#c7cbd1" />
-        </linearGradient>
-        <linearGradient id="ho-barra" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#8ec5ea" />
-          <stop offset="1" stopColor="#9bcbe9" />
-        </linearGradient>
-      </defs>
-      {/* Arco gris en forma de C */}
-      <path d="M 150 30 A 88 88 0 1 0 150 182" fill="none" stroke="url(#ho-arco)" strokeWidth="24" strokeLinecap="round" />
-      <path d="M 150 30 A 88 88 0 0 0 98 22" fill="none" stroke="#1e40af" strokeWidth="5" strokeLinecap="round" />
-      <path d="M 150 182 A 88 88 0 0 1 98 190" fill="none" stroke="#1e40af" strokeWidth="5" strokeLinecap="round" />
-      <text x="378" y="52" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize="30" fill="#2e7d32" textLength="390" lengthAdjust="spacingAndGlyphs">
-        INGENIERÍA Y MANTENIMIENTO
-      </text>
-      {/* Barras superior e inferior (azul con filo rojo) */}
-      <rect x="72" y="64" width="575" height="9" fill="url(#ho-barra)" stroke="#1e3a8a" strokeWidth="1.2" />
-      <rect x="72" y="73" width="575" height="3" fill="#c62828" />
-      <rect x="72" y="135" width="575" height="3" fill="#c62828" />
-      <rect x="72" y="138" width="575" height="9" fill="url(#ho-barra)" stroke="#1e3a8a" strokeWidth="1.2" />
-      <text x="340" y="124" textAnchor="middle" fontFamily="Georgia, 'Times New Roman', serif" fontWeight="700" fontSize="54" fill="#2f4f8f" textLength="450" lengthAdjust="spacing">
-        TOLTECATL
-      </text>
-      <text x="370" y="190" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontWeight="900" fontSize="32" fill="#b91c1c" textLength="320" lengthAdjust="spacing">
-        INDUSTRIAL
-      </text>
-      <image href="/logos/toltecatl-dragon.png" x="608" y="10" width="192" height="176" preserveAspectRatio="xMidYMid meet" />
-    </svg>
-  )
-}
-
 function FormatoToltecatl({ hoja: h }: { hoja: HojaOrden }) {
   const acts = h.actividades.length ? h.actividades : [{ numero: 1, titulo: h.orden.trabajoRealizado || h.orden.descripcion, detalle: [], realizada: h.orden.estado === "Terminada" }]
   return (
     <div className="ho-hoja ho-tol">
-      <div className="ho-tol-head">
-        <LogoToltecatl />
-        <div className="ho-tol-giro">{h.empresa.giro || "SUMINISTRO, DISEÑO, INSTALACIÓN Y MANTENIMIENTO INDUSTRIAL."}</div>
-      </div>
+      {/* Encabezado original de su hoja membretada. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/empresas/toltecatl-encabezado-original.jpg" alt={h.empresa.razonSocial} className="ho-tol-img" />
       <table className="ho-folio">
         <tbody>
           <tr><td>Orden de servicio:</td><td>{h.orden.referencia || h.orden.folio}</td></tr>
@@ -192,7 +152,7 @@ function FormatoToltecatl({ hoja: h }: { hoja: HojaOrden }) {
         <tbody>
           <tr>
             <td><span>Entregó el trabajo por parte de Toltecatl:</span><Firma src={h.firmas.tecnico} alt="Firma del técnico" /><b>{h.tecnico}</b><small>(Nombre completo y firma)</small></td>
-            <td><span>Verificó la entrega del trabajo por parte de Toltecatl:</span><div className="ho-firma" /><b>{h.empresa.representanteLegal}</b><small>{h.empresa.representanteCargo || "Representante Legal"}</small></td>
+            <td><span>Verificó la entrega del trabajo por parte de Toltecatl:</span><Firma src={h.empresa.firmaRepresentante} alt="Firma del representante legal" /><b>{h.empresa.representanteLegal}</b><small>{h.empresa.representanteCargo || "Representante Legal"}</small></td>
           </tr>
           <tr>
             <td><span>Recibió por parte del área Técnica:</span><Firma src={h.firmas.areaTecnica} alt="Firma del área técnica" /><b>{h.firmas.areaTecnicaNombre}</b><small>(Nombre completo y firma)</small></td>
@@ -201,10 +161,8 @@ function FormatoToltecatl({ hoja: h }: { hoja: HojaOrden }) {
         </tbody>
       </table>
       <div className="ho-sis"><span>Folio del sistema: {h.orden.folio}</span></div>
-      <div className="ho-tol-pie">
-        {h.empresa.razonSocial} – RFC: {h.empresa.rfc}<br />
-        {h.empresa.domicilio}{h.empresa.email || h.empresa.telefono ? <><br />{[h.empresa.email, h.empresa.telefono].filter(Boolean).join(", ")}</> : null}
-      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/empresas/toltecatl-pie.jpg" alt={`${h.empresa.razonSocial} – RFC ${h.empresa.rfc}`} className="ho-tol-img ho-tol-pie-img" />
     </div>
   )
 }
@@ -277,7 +235,7 @@ function FormatoBocam({ hoja: h }: { hoja: HojaOrden }) {
           <tr><td colSpan={2} className="ho-bv">FIRMA DEL PERSONAL PERTENECIENTE A LA EMPRESA</td></tr>
           <tr>
             <td><span><b>REALIZÓ LA VISITA</b></span><Firma src={h.firmas.tecnico} alt="Firma del técnico" /><b>{h.tecnico}</b><small>(Nombre completo y firma)</small></td>
-            <td><span><b>VISTO BUENO:</b></span><div className="ho-firma" /><b>{h.empresa.razonSocial}</b><small>{h.empresa.representanteLegal} · {h.empresa.representanteCargo || "Representante Legal"}</small></td>
+            <td><span><b>VISTO BUENO:</b></span><Firma src={h.empresa.firmaRepresentante} alt="Firma del representante legal" /><b>{h.empresa.razonSocial}</b><small>{h.empresa.representanteLegal} · {h.empresa.representanteCargo || "Representante Legal"}</small></td>
           </tr>
         </tbody>
       </table>
@@ -360,9 +318,7 @@ export const ESTILOS_HOJA = `
 .ho-firmas span,.ho-firmas b,.ho-firmas small{display:block}.ho-firmas span{text-align:center;margin-bottom:2px}
 .ho-firma{display:block;height:15mm;max-width:100%;margin:0 auto;object-fit:contain}
 .ho-sis{font-size:8.5px;color:#555;margin-top:2mm}
-.ho-tol-head{display:flex;height:24mm;border-bottom:4px solid #1e3a8a}.ho-tol-logo{height:22mm;width:auto;flex:none}
-.ho-tol-giro{flex:1;background:linear-gradient(105deg,transparent 0 9%,#1d4ed8 9%);color:#fff;font-weight:bold;font-size:8.4px;padding:3mm 3mm 0 12mm;text-align:justify;text-transform:uppercase;line-height:1.25}
-.ho-tol-pie{margin-top:3mm;background:#1e3a8a;color:#fff;text-align:center;font-size:9px;padding:2mm;line-height:1.4}
+.ho-tol-img{display:block;width:100%;height:auto}.ho-tol-pie-img{margin-top:3mm}
 .ho-boc-head{text-align:center;margin-bottom:1mm}
 .ho-boc-nom{color:#00a650;font-family:Verdana,"DejaVu Sans",Arial,sans-serif;font-size:21px;font-weight:900;letter-spacing:.3px;line-height:1.15}
 .ho-boc-dat{display:grid;grid-template-columns:1.25fr 1fr .65fr;gap:4mm;width:150mm;margin:1mm auto 0;text-align:left;font-size:8.6px;font-weight:bold;line-height:1.3}
@@ -376,7 +332,7 @@ export const ESTILOS_HOJA = `
   .ho-print{position:absolute;left:0;top:0;width:100%}
   .ho-hoja{box-shadow:none;padding:0}
   .ho-noprint{display:none!important}
-  .ho-bar,.ho-bv,.ho-folio td:first-child,.ho-tol-giro,.ho-tol-pie,.ho-boc-no{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ho-bar,.ho-bv,.ho-folio td:first-child,.ho-boc-no{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }`
 
 /** La hoja con el formato de la empresa de la orden. */
@@ -387,7 +343,16 @@ export function HojaOrdenDocumento({ hoja }: { hoja: HojaOrden }) {
   return <FormatoGeneral hoja={hoja} />
 }
 
-export function HojaOrdenVista({ ordenId, alVolver }: { ordenId: string; alVolver?: React.ReactNode }) {
+export function HojaOrdenVista({
+  ordenId,
+  alVolver,
+  rutaDocumentos,
+}: {
+  ordenId: string
+  alVolver?: React.ReactNode
+  /** Base de las rutas de los documentos de cierre (personal o portal). */
+  rutaDocumentos?: string
+}) {
   const [hoja, setHoja] = React.useState<HojaOrden | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [descargando, setDescargando] = React.useState(false)
@@ -434,6 +399,14 @@ export function HojaOrdenVista({ ordenId, alVolver }: { ordenId: string; alVolve
             Descargar orden firmada (escaneo)
           </Button>
         )}
+        {rutaDocumentos && hoja.contrato && hoja.orden.estado === "Terminada"
+          ? DOCUMENTOS_CIERRE.map((d) => (
+              <Button key={d.clave} variant="outline" render={<Link href={`${rutaDocumentos}/${d.clave}`} />} nativeButton={false}>
+                <FileText data-icon="inline-start" />
+                {d.titulo}
+              </Button>
+            ))
+          : null}
         <span className="text-xs text-muted-foreground">
           En el diálogo de impresión elige “Guardar como PDF” para descargarla.
         </span>
