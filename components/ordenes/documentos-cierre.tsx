@@ -151,7 +151,11 @@ function Firma({ hoja, alFinal = true }: { hoja: HojaOrden; alFinal?: boolean })
   return (
     <div className={alFinal ? "dc-firma" : "dc-firma dc-firma-arriba"}>
       Atentamente
-      <div className="dc-linea" />
+      {hoja.empresa.firmaRepresentante ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={hoja.empresa.firmaRepresentante} alt={`Firma de ${hoja.empresa.representanteLegal}`} className="dc-firma-img" />
+      ) : null}
+      <div className={hoja.empresa.firmaRepresentante ? "dc-linea dc-linea-firmada" : "dc-linea"} />
       {hoja.empresa.representanteLegal}<br />
       {razonEnTitulo(hoja.empresa.razonSocial)}<br />
       {hoja.empresa.representanteCargo || "Representante Legal"}
@@ -247,6 +251,8 @@ const ESTILOS = `
 .dc-fotos-3 img{height:52mm}
 .dc-firma{margin-top:auto;text-align:center;line-height:1.35;padding-top:6mm}
 .dc-firma-arriba{margin-top:14mm}
+.dc-firma-img{display:block;height:24mm;margin:2mm auto -14mm;position:relative;z-index:1}
+.dc-linea-firmada{border-bottom-color:transparent}
 .dc-linea{width:62mm;border-bottom:1px solid #333;margin:16mm auto 2mm}
 .dc-head-boc{text-align:center;padding:10mm 14mm 0}.dc-boc-nom{color:#00a650;font-family:Verdana,Arial,sans-serif;font-size:21px;font-weight:900}
 .dc-boc-dat{display:grid;grid-template-columns:1.25fr 1fr .65fr;gap:4mm;width:150mm;margin:1mm auto 0;text-align:left;font-size:8.6px;font-weight:bold}

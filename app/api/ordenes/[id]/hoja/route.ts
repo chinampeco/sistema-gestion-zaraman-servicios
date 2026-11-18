@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { firmaRepresentante } from "@/lib/firmas-representante"
 import type { HojaOrden } from "@/lib/hoja-orden"
 import { adminClient } from "@/lib/importacion-servidor"
 import { accesoOrden } from "@/lib/orden-acceso"
@@ -85,6 +86,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       representanteLegal: txt(e.representante_legal),
       representanteCargo: txt(e.representante_cargo),
       giro: txt(e.giro),
+      firmaRepresentante: firmaRepresentante(txt(e.clave)),
     },
     orden: {
       id: o.id,

@@ -152,7 +152,7 @@ function FormatoToltecatl({ hoja: h }: { hoja: HojaOrden }) {
         <tbody>
           <tr>
             <td><span>Entregó el trabajo por parte de Toltecatl:</span><Firma src={h.firmas.tecnico} alt="Firma del técnico" /><b>{h.tecnico}</b><small>(Nombre completo y firma)</small></td>
-            <td><span>Verificó la entrega del trabajo por parte de Toltecatl:</span><div className="ho-firma" /><b>{h.empresa.representanteLegal}</b><small>{h.empresa.representanteCargo || "Representante Legal"}</small></td>
+            <td><span>Verificó la entrega del trabajo por parte de Toltecatl:</span><Firma src={h.empresa.firmaRepresentante} alt="Firma del representante legal" /><b>{h.empresa.representanteLegal}</b><small>{h.empresa.representanteCargo || "Representante Legal"}</small></td>
           </tr>
           <tr>
             <td><span>Recibió por parte del área Técnica:</span><Firma src={h.firmas.areaTecnica} alt="Firma del área técnica" /><b>{h.firmas.areaTecnicaNombre}</b><small>(Nombre completo y firma)</small></td>
@@ -235,7 +235,7 @@ function FormatoBocam({ hoja: h }: { hoja: HojaOrden }) {
           <tr><td colSpan={2} className="ho-bv">FIRMA DEL PERSONAL PERTENECIENTE A LA EMPRESA</td></tr>
           <tr>
             <td><span><b>REALIZÓ LA VISITA</b></span><Firma src={h.firmas.tecnico} alt="Firma del técnico" /><b>{h.tecnico}</b><small>(Nombre completo y firma)</small></td>
-            <td><span><b>VISTO BUENO:</b></span><div className="ho-firma" /><b>{h.empresa.razonSocial}</b><small>{h.empresa.representanteLegal} · {h.empresa.representanteCargo || "Representante Legal"}</small></td>
+            <td><span><b>VISTO BUENO:</b></span><Firma src={h.empresa.firmaRepresentante} alt="Firma del representante legal" /><b>{h.empresa.razonSocial}</b><small>{h.empresa.representanteLegal} · {h.empresa.representanteCargo || "Representante Legal"}</small></td>
           </tr>
         </tbody>
       </table>

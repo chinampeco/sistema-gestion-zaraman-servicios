@@ -30,6 +30,8 @@ export interface HojaOrden {
     representanteLegal: string
     representanteCargo: string
     giro: string
+    /** Firma impresa del representante legal (imagen), si la empresa la tiene. */
+    firmaRepresentante: string
   }
   orden: {
     id: string
