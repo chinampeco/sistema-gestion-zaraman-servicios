@@ -19,7 +19,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     admin.from("empresas").select("*").eq("id", o.empresa_id).single(),
     admin.from("clientes").select("nombre, direccion, notas").eq("id", o.cliente_id).maybeSingle(),
     o.contrato_id
-      ? admin.from("contratos").select("numero_contrato, objeto").eq("id", o.contrato_id).maybeSingle()
+      ? admin.from("contratos").select("numero_contrato, objeto, garantia_calidad_meses").eq("id", o.contrato_id).maybeSingle()
       : Promise.resolve({ data: null }),
     o.contrato_partida_id
       ? admin
@@ -101,7 +101,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       area: txt(o.area),
     },
     cliente: { nombre: txt(cliente.data?.nombre), direccion: txt(cliente.data?.direccion), dependencia },
-    contrato: contrato.data ? { numero: txt(contrato.data.numero_contrato), objeto: txt(contrato.data.objeto) } : null,
+    contrato: contrato.data
+      ? {
+          numero: txt(contrato.data.numero_contrato),
+          objeto: txt(contrato.data.objeto),
+          garantiaCalidadMeses:
+            contrato.data.garantia_calidad_meses == null ? null : Number(contrato.data.garantia_calidad_meses),
+        }
+      : null,
     partida: partida.data
       ? {
           numero: Number(partida.data.numero) || 0,
@@ -128,6 +135,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       areaTecnicaNombre: txt(o.firma_area_tecnica_nombre),
       areaTecnicaFecha: o.firma_area_tecnica_fecha ?? null,
     },
+    evidencias: (Array.isArray(o.evidencias) ? o.evidencias : [])
+      .filter((ev: any) => typeof ev?.url === "string" && /^https?:\/\//.test(ev.url))
+      .map((ev: any) => ({ url: ev.url as string, descripcion: txt(ev.descripcion), fase: txt(ev.fase) })),
     documentoFirmado: documento.data ? { nombre: txt(documento.data.nombre_archivo) } : null,
   }
   return NextResponse.json({ hoja })

@@ -46,7 +46,7 @@ export interface HojaOrden {
     area: string
   }
   cliente: { nombre: string; direccion: string; dependencia: string }
-  contrato: { numero: string; objeto: string } | null
+  contrato: { numero: string; objeto: string; garantiaCalidadMeses: number | null } | null
   partida: { numero: number; descripcion: string; nombreProyecto: string; fichaTecnica: string } | null
   equipos: HojaEquipo[]
   actividades: HojaActividad[]
@@ -61,6 +61,8 @@ export interface HojaOrden {
     areaTecnicaNombre: string
     areaTecnicaFecha: string | null
   }
+  /** Fotos de evidencia del servicio (anexo gráfico). */
+  evidencias: { url: string; descripcion: string; fase: string }[]
   /** Hay escaneo firmado para descargar (órdenes de historial). */
   documentoFirmado: { nombre: string } | null
 }

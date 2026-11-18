@@ -12,6 +12,7 @@ export default function HojaOrdenPage() {
   return (
     <HojaOrdenVista
       ordenId={id}
+      rutaDocumentos={`/ordenes/${id}/documentos`}
       alVolver={
         <Button variant="ghost" render={<Link href={`/ordenes/${id}`} />} nativeButton={false}>
           <ArrowLeft data-icon="inline-start" />
