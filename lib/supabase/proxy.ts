@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 import type { RolUsuario } from "@/lib/types"
 import { puedeAccederRuta, rutaInicioRol } from "@/lib/permisos"
+import { RUTA_DOS_PASOS, requiereDosPasos, sesionVerificada } from "@/lib/dos-pasos"
 
 // Las rutas /api gestionan su propia autenticación y responden JSON (incluidos
 // 401/403). No deben pasar por el guard de redirección: si se redirigen,
@@ -64,6 +65,13 @@ export async function updateSession(request: NextRequest) {
     if (perfil?.debe_cambiar_password) {
       const url = request.nextUrl.clone()
       url.pathname = RUTA_CAMBIAR_PASSWORD
+      return NextResponse.redirect(url)
+    }
+
+    // Administrador y Coordinador: verificación en dos pasos en cada inicio de sesión.
+    if (requiereDosPasos(rol) && !(await sesionVerificada(supabase))) {
+      const url = request.nextUrl.clone()
+      url.pathname = RUTA_DOS_PASOS
       return NextResponse.redirect(url)
     }
 

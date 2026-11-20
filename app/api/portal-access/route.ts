@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 
 import { createClient } from "@/lib/supabase/server"
+import { requiereDosPasos, sesionVerificada } from "@/lib/dos-pasos"
 
 const STAFF_ROLES = ["Administrador", "Coordinador", "Supervisor", "Tecnico", "Técnico"]
 
@@ -27,6 +28,10 @@ async function requireStaff() {
       status: 403 as const,
       supabase: null,
     }
+  }
+
+  if (requiereDosPasos(perfil.rol) && !(await sesionVerificada(supabase))) {
+    return { error: "Primero completa la verificación en dos pasos.", status: 403 as const, supabase: null }
   }
 
   return { error: null, status: 200 as const, supabase }

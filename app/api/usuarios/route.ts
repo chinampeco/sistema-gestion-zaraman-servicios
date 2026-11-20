@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js"
 
 import { createClient } from "@/lib/supabase/server"
 import { ROLES_USUARIO } from "@/lib/types"
+import { sesionVerificada } from "@/lib/dos-pasos"
 import type { RolUsuario } from "@/lib/types"
 
 // Roles internos que se pueden asignar desde esta gestión.
@@ -32,6 +33,14 @@ async function requireAdmin() {
   if (!perfil || perfil.rol !== "Administrador") {
     return {
       error: "Solo un administrador puede gestionar usuarios.",
+      status: 403 as const,
+      user: null,
+    }
+  }
+
+  if (!(await sesionVerificada(supabase))) {
+    return {
+      error: "Primero completa la verificación en dos pasos.",
       status: 403 as const,
       user: null,
     }
@@ -290,6 +299,7 @@ export async function PATCH(request: Request) {
     typeof body?.nombre === "string" ? body.nombre.trim() : undefined
   const password: string | undefined =
     typeof body?.password === "string" ? body.password : undefined
+  const reiniciarDosPasos = body?.reiniciarDosPasos === true
 
   if (!userId) {
     return NextResponse.json({ error: "Falta el usuario." }, { status: 400 })
@@ -347,6 +357,23 @@ export async function PATCH(request: Request) {
     }
     // Contraseña puesta por el administrador a otra persona: temporal.
     if (!esUnoMismo) await admin.from("profiles").update({ debe_cambiar_password: true }).eq("id", userId)
+  }
+
+  // Reiniciar la verificación en dos pasos (perdió o cambió de celular): al
+  // entrar de nuevo registrará su app desde cero.
+  if (reiniciarDosPasos) {
+    if (esUnoMismo) {
+      return NextResponse.json(
+        { error: "Otro administrador debe reiniciar tu verificación en dos pasos." },
+        { status: 400 },
+      )
+    }
+    const { data: factores, error: e1 } = await admin.auth.admin.mfa.listFactors({ userId })
+    if (e1) return NextResponse.json({ error: "No se pudo reiniciar la verificación." }, { status: 500 })
+    for (const f of factores?.factors ?? []) {
+      const { error: e2 } = await admin.auth.admin.mfa.deleteFactor({ id: f.id, userId })
+      if (e2) return NextResponse.json({ error: "No se pudo reiniciar la verificación." }, { status: 500 })
+    }
   }
 
   const tecnicoId: string | null =
