@@ -98,6 +98,8 @@ export async function POST(request: Request) {
       rol: "Cliente",
       cliente_id: clienteId,
       nombre_completo: nombre || cliente.nombre,
+      // La contraseña inicial es temporal: se pide cambiarla en el primer acceso.
+      debe_cambiar_password: true,
     })
     .eq("id", created.user.id)
 
@@ -158,6 +160,8 @@ export async function PATCH(request: Request) {
       { status: 500 },
     )
   }
+  // Contraseña restablecida por el personal: temporal hasta que el cliente cree la suya.
+  await admin.from("profiles").update({ debe_cambiar_password: true }).eq("id", perfilCliente.id)
 
   return NextResponse.json({ ok: true, userId: perfilCliente.id })
 }

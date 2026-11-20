@@ -160,7 +160,7 @@ export function RevisionImportacion({
                     placeholder="correo@dependencia.gob.mx"
                   />
                   <FieldDescription>
-                    Entra con este correo y la contraseña <strong>{PASSWORD_PORTAL_INICIAL}</strong>. Puedes cambiarla después en la ficha del cliente.
+                    Entra con este correo y la contraseña <strong>{PASSWORD_PORTAL_INICIAL}</strong>. Es temporal: al entrar por primera vez se le pide crear su propia contraseña.
                   </FieldDescription>
                 </Field>
               )}

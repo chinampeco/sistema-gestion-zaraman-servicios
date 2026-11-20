@@ -12,6 +12,9 @@ const PUBLIC_PATHS = ["/auth", "/_next", "/favicon.ico", "/api"]
 // Pantalla para elegir con qué empresa trabajar (después de iniciar sesión).
 export const RUTA_SELECTOR_EMPRESA = "/seleccionar-empresa"
 
+// Pantalla para crear la contraseña propia cuando la actual es temporal.
+const RUTA_CAMBIAR_PASSWORD = "/auth/cambiar-password"
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -51,11 +54,18 @@ export async function updateSession(request: NextRequest) {
   if (user && !isPublic) {
     // empresa_activa() solo devuelve una empresa a la que el usuario sigue teniendo acceso.
     const [{ data: perfil }, { data: empresaActiva }] = await Promise.all([
-      supabase.from("profiles").select("rol").eq("id", user.id).single(),
+      supabase.from("profiles").select("rol, debe_cambiar_password").eq("id", user.id).single(),
       supabase.rpc("empresa_activa"),
     ])
 
     const rol = perfil?.rol as RolUsuario | undefined
+
+    // Contraseña temporal: antes de usar el sistema debe crear la suya.
+    if (perfil?.debe_cambiar_password) {
+      const url = request.nextUrl.clone()
+      url.pathname = RUTA_CAMBIAR_PASSWORD
+      return NextResponse.redirect(url)
+    }
 
     if (rol) {
       const enPortal = pathname === "/portal" || pathname.startsWith("/portal/")

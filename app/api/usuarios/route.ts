@@ -247,6 +247,8 @@ export async function POST(request: Request) {
       activo: true,
       cliente_id: null,
       tecnico_id: tecnicoVinculo,
+      // La contraseña que da el administrador es temporal.
+      debe_cambiar_password: true,
     })
     .eq("id", created.user.id)
 
@@ -343,6 +345,8 @@ export async function PATCH(request: Request) {
         { status: 500 },
       )
     }
+    // Contraseña puesta por el administrador a otra persona: temporal.
+    if (!esUnoMismo) await admin.from("profiles").update({ debe_cambiar_password: true }).eq("id", userId)
   }
 
   const tecnicoId: string | null =
