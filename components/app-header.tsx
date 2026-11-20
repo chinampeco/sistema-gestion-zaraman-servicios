@@ -20,6 +20,7 @@ import {
 import { useStore } from "@/lib/store"
 import { contarNotificaciones } from "@/lib/notificaciones"
 import { createClient } from "@/lib/supabase/client"
+import { cerrarSesion as cerrarSesionConBitacora } from "@/lib/sesion"
 
 export function AppHeader() {
   const router = useRouter()
@@ -32,8 +33,7 @@ export function AppHeader() {
   )
 
   async function cerrarSesion() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    await cerrarSesionConBitacora(createClient())
     router.push("/auth/login")
     router.refresh()
   }

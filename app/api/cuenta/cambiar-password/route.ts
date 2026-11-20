@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { registrarAcceso } from "@/lib/bitacora"
 import { adminClient } from "@/lib/importacion-servidor"
 import { createClient } from "@/lib/supabase/server"
 
@@ -35,5 +36,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: mensaje }, { status: 400 })
   }
   await admin.from("profiles").update({ debe_cambiar_password: false }).eq("id", user.id)
+  await registrarAcceso(request.headers, { evento: "Cambio de contraseña", usuarioId: user.id })
   return NextResponse.json({ ok: true })
 }

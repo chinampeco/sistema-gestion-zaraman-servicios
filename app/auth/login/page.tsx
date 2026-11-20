@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff } from "lucide-react"
 
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -33,14 +32,14 @@ export default function LoginPage() {
     e.preventDefault()
     setCargando(true)
     setError(null)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError(
-        error.message.toLowerCase().includes("email not confirmed")
-          ? "Debes confirmar tu correo antes de iniciar sesión."
-          : "Correo o contraseña incorrectos.",
-      )
+    const r = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }).catch(() => null)
+    const d = r ? await r.json().catch(() => ({})) : {}
+    if (!r || !r.ok) {
+      setError(d.error ?? "No se pudo conectar. Revisa tu conexión e intenta de nuevo.")
       setCargando(false)
       return
     }

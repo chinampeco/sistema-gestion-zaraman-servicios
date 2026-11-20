@@ -4,6 +4,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/server"
 import { ROLES_USUARIO } from "@/lib/types"
 import { sesionVerificada } from "@/lib/dos-pasos"
+import { registrarAcceso } from "@/lib/bitacora"
 import type { RolUsuario } from "@/lib/types"
 
 // Roles internos que se pueden asignar desde esta gestión.
@@ -357,6 +358,11 @@ export async function PATCH(request: Request) {
     }
     // Contraseña puesta por el administrador a otra persona: temporal.
     if (!esUnoMismo) await admin.from("profiles").update({ debe_cambiar_password: true }).eq("id", userId)
+    await registrarAcceso(request.headers, {
+      evento: esUnoMismo ? "Cambio de contraseña" : "Contraseña restablecida",
+      usuarioId: userId,
+      detalle: esUnoMismo ? "" : `Por el administrador ${auth.user.email ?? ""}`,
+    })
   }
 
   // Reiniciar la verificación en dos pasos (perdió o cambió de celular): al
@@ -374,6 +380,11 @@ export async function PATCH(request: Request) {
       const { error: e2 } = await admin.auth.admin.mfa.deleteFactor({ id: f.id, userId })
       if (e2) return NextResponse.json({ error: "No se pudo reiniciar la verificación." }, { status: 500 })
     }
+    await registrarAcceso(request.headers, {
+      evento: "Verificación reiniciada",
+      usuarioId: userId,
+      detalle: `Por el administrador ${auth.user.email ?? ""}`,
+    })
   }
 
   const tecnicoId: string | null =

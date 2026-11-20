@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Spinner } from "@/components/ui/spinner"
 import { createClient } from "@/lib/supabase/client"
+import { cerrarSesion as cerrarSesionConBitacora } from "@/lib/sesion"
 import type { Empresa } from "@/lib/types"
 import { LogoEmpresa } from "@/components/empresas/logo-empresa"
 import { MarcaPlataforma } from "@/components/marca/marca-plataforma"
@@ -42,8 +43,7 @@ export function SelectorEmpresa({
   }
 
   async function cerrarSesion() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    await cerrarSesionConBitacora(createClient())
     router.push("/auth/login")
     router.refresh()
   }

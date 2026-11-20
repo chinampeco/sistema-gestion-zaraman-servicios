@@ -12,6 +12,7 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { createClient } from "@/lib/supabase/client"
+import { cerrarSesion, registrarEventoSesion } from "@/lib/sesion"
 
 type Estado =
   | { modo: "cargando" }
@@ -67,6 +68,7 @@ export default function VerificacionDosPasosPage() {
     setEnviando(true)
     const { error: e1 } = await createClient().auth.mfa.challengeAndVerify({ factorId: estado.factorId, code: limpio })
     setEnviando(false)
+    registrarEventoSesion("Verificación en dos pasos", !e1)
     if (e1) {
       setCodigo("")
       return setError("El código no es correcto o ya expiró. Escribe el que aparece ahora en tu app.")
@@ -76,7 +78,7 @@ export default function VerificacionDosPasosPage() {
   }
 
   async function salir() {
-    await createClient().auth.signOut()
+    await cerrarSesion(createClient())
     router.replace("/auth/login")
   }
 

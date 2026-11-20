@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js"
 
 import { createClient } from "@/lib/supabase/server"
 import { requiereDosPasos, sesionVerificada } from "@/lib/dos-pasos"
+import { registrarAcceso } from "@/lib/bitacora"
 
 const STAFF_ROLES = ["Administrador", "Coordinador", "Supervisor", "Tecnico", "Técnico"]
 
@@ -167,6 +168,11 @@ export async function PATCH(request: Request) {
   }
   // Contraseña restablecida por el personal: temporal hasta que el cliente cree la suya.
   await admin.from("profiles").update({ debe_cambiar_password: true }).eq("id", perfilCliente.id)
+  await registrarAcceso(request.headers, {
+    evento: "Contraseña restablecida",
+    usuarioId: perfilCliente.id,
+    detalle: "Acceso al portal del cliente",
+  })
 
   return NextResponse.json({ ok: true, userId: perfilCliente.id })
 }
