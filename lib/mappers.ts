@@ -2,6 +2,7 @@
 // de la aplicación (camelCase). Centralizar el mapeo aquí mantiene las
 // pantallas y el store sin detalles del esquema de la base de datos.
 
+import { normalizarPerfil } from "@/lib/tecnico-perfil"
 import type {
   Cliente,
   ConceptoCotizacion,
@@ -321,6 +322,10 @@ export function mapTecnico(row: Record<string, any>): Tecnico {
   activo: row.activo ?? true,
   tieneCedula: row.tiene_cedula ?? false,
   notas: txt(row.notas),
+  lugarOrigen: txt(row.lugar_origen),
+  regionesTrabajo: Array.isArray(row.regiones_trabajo) ? row.regiones_trabajo : [],
+  perfil: normalizarPerfil(row.perfil ?? {}),
+  perfilActualizadoAt: row.perfil_actualizado_at ?? null,
   }
   }
 
@@ -588,6 +593,10 @@ export function tecnicoToDb(data: Partial<Tecnico>): Record<string, any> {
   if (data.activo !== undefined) out.activo = data.activo
   if (data.tieneCedula !== undefined) out.tiene_cedula = data.tieneCedula
   if (data.notas !== undefined) out.notas = data.notas || null
+  if (data.lugarOrigen !== undefined) out.lugar_origen = data.lugarOrigen
+  if (data.regionesTrabajo !== undefined) out.regiones_trabajo = data.regionesTrabajo
+  if (data.perfil !== undefined) out.perfil = data.perfil
+  if (data.perfilActualizadoAt !== undefined) out.perfil_actualizado_at = data.perfilActualizadoAt
   return out
   }
 

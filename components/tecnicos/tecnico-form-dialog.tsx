@@ -42,6 +42,8 @@ const emptyForm: FormState = {
   activo: true,
   tieneCedula: false,
   notas: "",
+  lugarOrigen: "",
+  regionesTrabajo: [],
 }
 
 export function TecnicoFormDialog({
@@ -66,6 +68,8 @@ export function TecnicoFormDialog({
               activo: tecnico.activo,
               tieneCedula: tecnico.tieneCedula,
               notas: tecnico.notas,
+              lugarOrigen: tecnico.lugarOrigen ?? "",
+              regionesTrabajo: tecnico.regionesTrabajo ?? [],
             }
           : emptyForm,
       )
@@ -78,10 +82,11 @@ export function TecnicoFormDialog({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const datos = { ...form, regionesTrabajo: (form.regionesTrabajo ?? []).map((r) => r.trim()).filter(Boolean) }
     if (tecnico) {
-      actualizarTecnico(tecnico.id, form)
+      actualizarTecnico(tecnico.id, datos)
     } else {
-      crearTecnico(form)
+      crearTecnico(datos)
     }
     onOpenChange(false)
   }
@@ -168,6 +173,32 @@ export function TecnicoFormDialog({
                   id="telefono"
                   value={form.telefono}
                   onChange={(e) => set("telefono", e.target.value)}
+                />
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="lugarOrigen">Lugar de origen / residencia</FieldLabel>
+                <Input
+                  id="lugarOrigen"
+                  value={form.lugarOrigen ?? ""}
+                  onChange={(e) => set("lugarOrigen", e.target.value)}
+                  placeholder="Tuxtla Gutiérrez, Chiapas"
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="regiones">Regiones donde puede trabajar</FieldLabel>
+                <Input
+                  id="regiones"
+                  value={(form.regionesTrabajo ?? []).join(", ")}
+                  onChange={(e) =>
+                    set(
+                      "regionesTrabajo",
+                      e.target.value.split(",").map((r) => r.trimStart()),
+                    )
+                  }
+                  placeholder="CDMX, Estado de México, Hidalgo"
                 />
               </Field>
             </div>
