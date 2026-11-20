@@ -7,7 +7,6 @@ import { toast } from "sonner"
 
 import { PageHeader } from "@/components/page-header"
 import {
-  PASSWORD_PORTAL_INICIAL,
   RevisionImportacion,
   type SeleccionCliente,
 } from "@/components/contratos/importacion/revision-importacion"
@@ -30,6 +29,7 @@ import {
   type ExtraccionContrato,
 } from "@/lib/importacion-contratos"
 import { guardarImportacion, type ArchivoLote } from "@/lib/importacion-guardar"
+import { generarPasswordTemporal } from "@/lib/password-temporal"
 
 const CLIENTE_VACIO: SeleccionCliente = {
   clienteId: null,
@@ -43,15 +43,16 @@ const normalizar = (s: string) =>
   s.toLocaleLowerCase("es-MX").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "")
 
 async function crearAccesoPortal(clienteId: string, nombre: string, email: string): Promise<string> {
+  const password = generarPasswordTemporal()
   try {
     const r = await fetch("/api/portal-access", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clienteId, nombre, email, password: PASSWORD_PORTAL_INICIAL }),
+      body: JSON.stringify({ clienteId, nombre, email, password }),
     })
     const d = await r.json().catch(() => ({}))
     if (!r.ok) return `No se creó el acceso al portal: ${d.error ?? "error desconocido"}. Puedes crearlo desde la ficha del cliente.`
-    return `Acceso al portal creado: ${email} con la contraseña ${PASSWORD_PORTAL_INICIAL}.`
+    return `Acceso al portal creado: ${email} con la contraseña temporal ${password} (pásasela al cliente; al entrar se le pedirá crear la suya).`
   } catch {
     return "No se creó el acceso al portal (sin conexión). Puedes crearlo desde la ficha del cliente."
   }
