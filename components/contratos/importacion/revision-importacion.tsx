@@ -39,8 +39,7 @@ export interface SeleccionCliente {
   acceso: { crear: boolean; email: string }
 }
 
-/** Contraseña inicial de los accesos al portal creados al importar un contrato. */
-export const PASSWORD_PORTAL_INICIAL = "123456"
+
 
 // Pantalla de revisión: todo lo que leyó la IA, editable antes de guardar.
 export function RevisionImportacion({
@@ -160,7 +159,7 @@ export function RevisionImportacion({
                     placeholder="correo@dependencia.gob.mx"
                   />
                   <FieldDescription>
-                    Entra con este correo y la contraseña <strong>{PASSWORD_PORTAL_INICIAL}</strong>. Puedes cambiarla después en la ficha del cliente.
+                    Se genera una contraseña temporal aleatoria que verás al terminar, para pasársela al cliente. Al entrar por primera vez se le pide crear la suya.
                   </FieldDescription>
                 </Field>
               )}

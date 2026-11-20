@@ -19,15 +19,9 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Spinner } from "@/components/ui/spinner"
+import { generarPasswordTemporal } from "@/lib/password-temporal"
 
-function generarPassword() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
-  let out = ""
-  for (let i = 0; i < 10; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return out
-}
+const generarPassword = () => generarPasswordTemporal()
 
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [copiado, setCopiado] = React.useState(false)
