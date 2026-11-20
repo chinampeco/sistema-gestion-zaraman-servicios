@@ -353,6 +353,7 @@ function CrearUsuarioDialog({
       return
     }
     toast.success("Usuario creado.")
+    for (const aviso of (data?.avisos ?? []) as string[]) toast.warning(aviso, { duration: 10000 })
     onOpenChange(false)
     await onGuardado()
   }
@@ -395,7 +396,7 @@ function CrearUsuarioDialog({
           {rol === "Técnico" && (
             <Field>
               <FieldLabel htmlFor="nuevo-tecnico">Ficha de técnico vinculada</FieldLabel>
-              <Select value={tecnicoId} onValueChange={setTecnicoId}>
+              <Select value={tecnicoId} onValueChange={(v) => setTecnicoId((v as string) ?? "")} items={tecnicosDisponibles.map((t) => ({ value: t.id, label: t.nombre }))}>
                 <SelectTrigger id="nuevo-tecnico">
                   <SelectValue placeholder="Selecciona un técnico" />
                 </SelectTrigger>
@@ -414,7 +415,8 @@ function CrearUsuarioDialog({
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  La cuenta solo verá las órdenes asignadas a esta ficha.
+                  Solo verá las órdenes asignadas a él. Si tiene acceso a varias empresas, se liga
+                  también a su ficha con el mismo nombre en cada una.
                 </p>
               )}
             </Field>
@@ -546,6 +548,7 @@ function EditarUsuarioDialog({
       return
     }
     toast.success("Usuario actualizado.")
+    for (const aviso of (data?.avisos ?? []) as string[]) toast.warning(aviso, { duration: 10000 })
     onClose()
     await onGuardado()
   }
@@ -585,7 +588,7 @@ function EditarUsuarioDialog({
           {rol === "Técnico" && (
             <Field>
               <FieldLabel htmlFor="editar-tecnico">Ficha de técnico vinculada</FieldLabel>
-              <Select value={tecnicoId} onValueChange={setTecnicoId}>
+              <Select value={tecnicoId} onValueChange={(v) => setTecnicoId((v as string) ?? "")} items={tecnicosDisponibles.map((t) => ({ value: t.id, label: t.nombre }))}>
                 <SelectTrigger id="editar-tecnico">
                   <SelectValue placeholder="Selecciona un técnico" />
                 </SelectTrigger>
