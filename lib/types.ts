@@ -1,3 +1,4 @@
+import type { PerfilTecnico } from "@/lib/tecnico-perfil"
 // Tipos de dominio de ZARAMAN SERVICIOS.
 // Los nombres y campos están alineados con el esquema de Supabase
 // (ver lib/mappers.ts para la conversión entre columnas y este modelo).
@@ -337,6 +338,12 @@ export interface Tecnico {
   tieneCedula: boolean
   /** Observaciones: fortalezas, si puede ser encargado de brigada, etc. */
   notas: string
+  /** Ciudad / estado donde vive (para sugerir por cercanía). */
+  lugarOrigen?: string
+  /** Regiones, zonas o estados donde puede trabajar. */
+  regionesTrabajo?: string[]
+  perfil?: PerfilTecnico
+  perfilActualizadoAt?: string | null
 }
 
 // Razón social que opera en el sistema. Cada registro de negocio pertenece a una.

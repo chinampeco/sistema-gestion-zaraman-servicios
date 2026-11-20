@@ -36,6 +36,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { ExpedienteTecnico } from "@/components/tecnicos/expediente-tecnico"
 import { useStore } from "@/lib/store"
 import { formatFecha } from "@/lib/format"
 
@@ -182,6 +183,8 @@ export default function TecnicoDetallePage() {
             icon={Users}
           />
         </div>
+
+        <ExpedienteTecnico tecnico={tecnico} />
 
         <Card>
           <CardHeader>
