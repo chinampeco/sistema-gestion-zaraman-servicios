@@ -60,6 +60,14 @@ function Vigencia({ hasta }: { hasta: string | null }) {
 
 const aLista = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean)
 
+/** Copia perfil y documentos a la ficha con el mismo nombre en las otras empresas del usuario. */
+async function sincronizarExpediente(tecnicoId: string) {
+  const r = await fetch(`/api/tecnicos/${tecnicoId}/sincronizar`, { method: "POST" }).catch(() => null)
+  const d = await r?.json().catch(() => null)
+  const copias: string[] = d?.copias ?? []
+  if (copias.length) toast.info(`También se actualizó su ficha en ${copias.join("; ")}.`)
+}
+
 export function ExpedienteTecnico({ tecnico }: { tecnico: Tecnico }) {
   const { usuarioActual, actualizarTecnico } = useStore()
   const puedeGestionar = puedeGestionarContratos(usuarioActual.rol)
@@ -133,6 +141,7 @@ export function ExpedienteTecnico({ tecnico }: { tecnico: Tecnico }) {
       perfilActualizadoAt: new Date().toISOString(),
     })
     setPropuesta(null)
+    void sincronizarExpediente(tecnico.id)
   }
 
   const perfil = tecnico.perfil ?? PERFIL_VACIO
@@ -234,7 +243,10 @@ export function ExpedienteTecnico({ tecnico }: { tecnico: Tecnico }) {
         abierto={subir}
         tecnico={tecnico}
         onCerrar={() => setSubir(false)}
-        onSubido={(d) => setDocs((prev) => [d, ...(prev ?? [])])}
+        onSubido={(d) => {
+          setDocs((prev) => [d, ...(prev ?? [])])
+          void sincronizarExpediente(tecnico.id)
+        }}
       />
 
       <ConfirmDeleteDialog

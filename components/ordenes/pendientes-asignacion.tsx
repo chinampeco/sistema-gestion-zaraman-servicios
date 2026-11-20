@@ -5,6 +5,7 @@ import Link from "next/link"
 import { CheckCircle2, ShieldCheck, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
+import { SugerenciasTecnico } from "@/components/ordenes/sugerencias-tecnico"
 import { useStore } from "@/lib/store"
 import { puedeReasignarOrdenes } from "@/lib/permisos"
 import { formatFecha } from "@/lib/format"
@@ -277,6 +278,9 @@ export function PendientesAsignacion() {
           </DialogHeader>
 
           <FieldGroup>
+            {asignando && (
+              <SugerenciasTecnico orden={asignando} seleccionado={tecnicoId} onElegir={setTecnicoId} />
+            )}
             <Field>
               <FieldLabel>Técnico responsable</FieldLabel>
               <Select value={tecnicoId} onValueChange={(v) => setTecnicoId(v ?? "")}>
