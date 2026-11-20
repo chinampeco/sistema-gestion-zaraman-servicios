@@ -266,7 +266,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setUsuarios(lista)
         const uid = userRes.data.user?.id
         const actual = lista.find((u) => u.id === uid)
-        if (actual) setUsuarioActual(actual)
+        if (actual?.rol === "Técnico") {
+          // Un técnico tiene una ficha por empresa: se usa la de la empresa seleccionada.
+          const { data: fichaActiva } = await supabase.rpc("current_tecnico_id")
+          setUsuarioActual({ ...actual, tecnicoId: (fichaActiva as string | null) ?? null })
+        } else if (actual) setUsuarioActual(actual)
         else if (userRes.data.user) {
           setUsuarioActual({
             id: userRes.data.user.id,

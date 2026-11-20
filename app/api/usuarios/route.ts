@@ -78,6 +78,60 @@ async function validarTecnicoEnEmpresas(
   return null
 }
 
+const normalizarNombre = (s: string) =>
+  s.toLocaleLowerCase("es-MX").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim()
+
+/**
+ * Liga la cuenta de un técnico con su ficha en cada empresa a la que tiene
+ * acceso: la ficha elegida y, en las demás empresas, la ficha libre con el
+ * mismo nombre. Desliga las fichas de empresas a las que ya no entra (o todas
+ * si fichaBase es null). Devuelve avisos de empresas sin ficha.
+ */
+async function vincularFichas(
+  admin: Admin,
+  userId: string,
+  fichaBase: string | null,
+  empresas: string[],
+): Promise<{ error: string | null; avisos: string[] }> {
+  const { data: actuales } = await admin.from("tecnicos").select("id, empresa_id").eq("usuario_id", userId)
+  const sobran = (actuales ?? []).filter((t) => !fichaBase || !empresas.includes(t.empresa_id)).map((t) => t.id)
+  if (sobran.length) await admin.from("tecnicos").update({ usuario_id: null }).in("id", sobran)
+  if (!fichaBase) return { error: null, avisos: [] }
+
+  const { data: base } = await admin.from("tecnicos").select("id, nombre, empresa_id, usuario_id").eq("id", fichaBase).maybeSingle()
+  if (!base) return { error: "La ficha de técnico no existe.", avisos: [] }
+  if (base.usuario_id && base.usuario_id !== userId) return { error: "Esa ficha de técnico ya tiene una cuenta de acceso.", avisos: [] }
+
+  // Quita otra ficha de la misma empresa que estuviera ligada a esta cuenta.
+  await admin.from("tecnicos").update({ usuario_id: null }).eq("usuario_id", userId).eq("empresa_id", base.empresa_id).neq("id", base.id)
+  const { error: errorBase } = await admin.from("tecnicos").update({ usuario_id: userId }).eq("id", base.id)
+  if (errorBase) return { error: "No se pudo ligar la ficha del técnico.", avisos: [] }
+
+  const avisos: string[] = []
+  const otras = empresas.filter((e) => e !== base.empresa_id)
+  if (otras.length) {
+    const [{ data: fichas }, { data: emps }] = await Promise.all([
+      admin.from("tecnicos").select("id, nombre, empresa_id, usuario_id").in("empresa_id", otras),
+      admin.from("empresas").select("id, clave").in("id", otras),
+    ])
+    const nombre = normalizarNombre(base.nombre)
+    for (const empresaId of otras) {
+      const clave = emps?.find((e) => e.id === empresaId)?.clave ?? "otra empresa"
+      const deEmpresa = (fichas ?? []).filter((t) => t.empresa_id === empresaId)
+      if (deEmpresa.some((t) => t.usuario_id === userId)) continue
+      const igual = deEmpresa.find((t) => normalizarNombre(t.nombre) === nombre)
+      if (!igual) {
+        avisos.push(`En ${clave} no hay ficha de técnico llamada "${base.nombre}": ahí no verá órdenes hasta darla de alta.`)
+      } else if (igual.usuario_id) {
+        avisos.push(`En ${clave} la ficha de "${base.nombre}" ya está ligada a otra cuenta.`)
+      } else {
+        await admin.from("tecnicos").update({ usuario_id: userId }).eq("id", igual.id)
+      }
+    }
+  }
+  return { error: null, avisos }
+}
+
 // Deja al usuario con acceso exactamente a estas empresas. Si su empresa activa
 // ya no está en la lista, pasa a la primera.
 async function sincronizarEmpresas(admin: Admin, userId: string, ids: string[]): Promise<string | null> {
@@ -158,7 +212,8 @@ export async function POST(request: Request) {
       .select("id")
       .eq("tecnico_id", tecnicoVinculo)
       .maybeSingle()
-    if (yaVinculada) {
+    const { data: ficha } = await admin.from("tecnicos").select("usuario_id").eq("id", tecnicoVinculo).maybeSingle()
+    if (yaVinculada || ficha?.usuario_id) {
       return NextResponse.json(
         { error: "Esa ficha de técnico ya tiene una cuenta de acceso." },
         { status: 400 },
@@ -204,7 +259,17 @@ export async function POST(request: Request) {
     )
   }
 
-  return NextResponse.json({ ok: true, userId: created.user.id })
+  let avisos: string[] = []
+  if (tecnicoVinculo) {
+    const r = await vincularFichas(admin, created.user.id, tecnicoVinculo, empresas)
+    if (r.error) {
+      await admin.auth.admin.deleteUser(created.user.id)
+      return NextResponse.json({ error: r.error }, { status: 400 })
+    }
+    avisos = r.avisos
+  }
+
+  return NextResponse.json({ ok: true, userId: created.user.id, avisos })
 }
 
 // Actualizar un usuario interno: rol, estado, nombre o contraseña.
@@ -347,5 +412,22 @@ export async function PATCH(request: Request) {
     if (errorSync) return NextResponse.json({ error: errorSync }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true, userId })
+  // Fichas de técnico ligadas en cada empresa a la que entra la cuenta.
+  const rolFinal = nuevoRol ?? objetivo.rol
+  let avisos: string[] = []
+  if (rolFinal !== "Técnico") {
+    await vincularFichas(admin, userId, null, [])
+  } else if (empresas || tecnicoId) {
+    const { data: perfil } = await admin.from("profiles").select("tecnico_id").eq("id", userId).single()
+    const empresasFinal =
+      empresas ??
+      ((await admin.from("usuario_empresas").select("empresa_id").eq("usuario_id", userId).eq("activo", true)).data ?? []).map(
+        (r) => r.empresa_id as string,
+      )
+    const r = await vincularFichas(admin, userId, tecnicoId ?? perfil?.tecnico_id ?? null, empresasFinal)
+    if (r.error) return NextResponse.json({ error: r.error }, { status: 400 })
+    avisos = r.avisos
+  }
+
+  return NextResponse.json({ ok: true, userId, avisos })
 }
