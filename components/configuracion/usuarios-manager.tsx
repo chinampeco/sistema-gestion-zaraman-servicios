@@ -502,6 +502,7 @@ function EditarUsuarioDialog({
     return tecnicos.filter((t) => !vinculados.has(t.id))
   }, [tecnicos, usuarios, usuario.id])
 
+  const [reiniciarDosPasos, setReiniciarDosPasos] = React.useState(false)
   const [cambiarPass, setCambiarPass] = React.useState(false)
   const [password, setPassword] = React.useState("")
   const [confirmar, setConfirmar] = React.useState("")
@@ -536,6 +537,7 @@ function EditarUsuarioDialog({
       empresas,
     }
     if (cambiarPass) body.password = password
+    if (reiniciarDosPasos) body.reiniciarDosPasos = true
     const res = await fetch("/api/usuarios", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -667,6 +669,18 @@ function EditarUsuarioDialog({
             )}
           </div>
         </div>
+
+        {!esUnoMismo && (rol === "Administrador" || rol === "Coordinador") && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+            <div className="flex flex-col gap-0.5">
+              <Label htmlFor="editar-2fa">Reiniciar verificación en dos pasos</Label>
+              <span className="text-xs text-muted-foreground">
+                Si perdió o cambió de celular. Al entrar de nuevo registrará su app desde cero.
+              </span>
+            </div>
+            <Switch id="editar-2fa" checked={reiniciarDosPasos} onCheckedChange={setReiniciarDosPasos} />
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
