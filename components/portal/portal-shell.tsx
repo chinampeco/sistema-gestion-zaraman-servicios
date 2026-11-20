@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useStore } from "@/lib/store"
 import { createClient } from "@/lib/supabase/client"
+import { cerrarSesion as cerrarSesionConBitacora } from "@/lib/sesion"
 
 const NAV = [
   { href: "/portal", label: "Inicio", icon: LayoutDashboard },
@@ -36,8 +37,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   const { usuarioActual, empresaActiva } = useStore()
 
   async function cerrarSesion() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    await cerrarSesionConBitacora(createClient())
     router.push("/auth/login")
     router.refresh()
   }

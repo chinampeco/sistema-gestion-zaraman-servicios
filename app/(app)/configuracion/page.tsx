@@ -29,6 +29,7 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { UsuariosManager } from "@/components/configuracion/usuarios-manager"
 import { EmpresasManager } from "@/components/configuracion/empresas-manager"
+import { BitacoraAccesos } from "@/components/configuracion/bitacora-accesos"
 import { useStore } from "@/lib/store"
 import { createClient } from "@/lib/supabase/client"
 import { iniciales } from "@/lib/format"
@@ -82,6 +83,7 @@ export default function ConfiguracionPage() {
           <TabsTrigger value="perfil">Perfil</TabsTrigger>
           <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
           {esAdmin && <TabsTrigger value="empresas">Empresas</TabsTrigger>}
+          {esAdmin && <TabsTrigger value="bitacora">Bitácora</TabsTrigger>}
           <TabsTrigger value="general">General</TabsTrigger>
         </TabsList>
 
@@ -173,6 +175,25 @@ export default function ConfiguracionPage() {
               </CardHeader>
               <CardContent>
                 <EmpresasManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Bitácora de accesos */}
+        {esAdmin && (
+          <TabsContent value="bitacora">
+            <Card>
+              <CardHeader>
+                <CardTitle>Bitácora de accesos</CardTitle>
+                <CardDescription>
+                  Quién entró al sistema, cuándo, desde dónde y con qué equipo. Incluye intentos fallidos,
+                  cambios de contraseña y verificaciones en dos pasos. Tras 5 intentos fallidos con un mismo
+                  correo, el acceso se bloquea 15 minutos.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <BitacoraAccesos />
               </CardContent>
             </Card>
           </TabsContent>

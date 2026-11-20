@@ -12,6 +12,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { createClient } from "@/lib/supabase/client"
+import { cerrarSesion } from "@/lib/sesion"
 
 export default function CambiarPasswordPage() {
   const router = useRouter()
@@ -48,7 +49,7 @@ export default function CambiarPasswordPage() {
   }
 
   async function salir() {
-    await createClient().auth.signOut()
+    await cerrarSesion(createClient())
     router.replace("/auth/login")
   }
 
