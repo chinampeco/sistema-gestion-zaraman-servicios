@@ -30,6 +30,7 @@ import { Separator } from "@/components/ui/separator"
 import { UsuariosManager } from "@/components/configuracion/usuarios-manager"
 import { EmpresasManager } from "@/components/configuracion/empresas-manager"
 import { BitacoraAccesos } from "@/components/configuracion/bitacora-accesos"
+import { RespaldoSistema } from "@/components/configuracion/respaldo"
 import { useStore } from "@/lib/store"
 import { createClient } from "@/lib/supabase/client"
 import { iniciales } from "@/lib/format"
@@ -84,6 +85,7 @@ export default function ConfiguracionPage() {
           <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
           {esAdmin && <TabsTrigger value="empresas">Empresas</TabsTrigger>}
           {esAdmin && <TabsTrigger value="bitacora">Bitácora</TabsTrigger>}
+          {esAdmin && <TabsTrigger value="respaldo">Respaldo</TabsTrigger>}
           <TabsTrigger value="general">General</TabsTrigger>
         </TabsList>
 
@@ -194,6 +196,21 @@ export default function ConfiguracionPage() {
               </CardHeader>
               <CardContent>
                 <BitacoraAccesos />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Respaldo */}
+        {esAdmin && (
+          <TabsContent value="respaldo">
+            <Card>
+              <CardHeader>
+                <CardTitle>Respaldo</CardTitle>
+                <CardDescription>Copia completa de la información del sistema en un archivo ZIP.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RespaldoSistema />
               </CardContent>
             </Card>
           </TabsContent>
