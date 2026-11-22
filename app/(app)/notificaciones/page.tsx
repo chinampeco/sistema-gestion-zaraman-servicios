@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useStore } from "@/lib/store"
 import { obtenerNotificaciones } from "@/lib/notificaciones"
+import { AvisosLicitaciones } from "@/components/licitaciones/avisos-licitaciones"
 
 const CATEGORIAS = ["Órdenes", "Tickets", "Cotizaciones", "Facturas"] as const
 
@@ -32,6 +33,8 @@ export default function NotificacionesPage() {
           </p>
         </div>
       </div>
+
+      <AvisosLicitaciones />
 
       {notificaciones.length === 0 ? (
         <Card>
