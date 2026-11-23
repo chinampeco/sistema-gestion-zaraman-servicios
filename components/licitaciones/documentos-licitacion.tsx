@@ -414,7 +414,7 @@ function AplicarLecturaDialog({
     {
       clave: "puntos",
       titulo: "Tabla de puntos",
-      detalle: `${lectura.tabla_puntos.length} criterio(s), ${lectura.tabla_puntos.reduce((t, c) => t + c.maximo, 0)} puntos`,
+      detalle: `${lectura.tabla_puntos.length} criterio(s), ${Math.round(lectura.tabla_puntos.reduce((t, c) => t + c.maximo, 0) * 100) / 100} puntos; crea su requisito de seguimiento`,
       hay: lectura.tabla_puntos.length > 0,
     },
     {

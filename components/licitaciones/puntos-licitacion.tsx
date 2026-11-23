@@ -1,7 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { Calculator, Target } from "lucide-react"
+import { Calculator, ListPlus, Target } from "lucide-react"
+import { toast } from "sonner"
+
+import { Button } from "@/components/ui/button"
 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,12 +13,36 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { formatoMoneda } from "@/lib/contratos"
 import { puntosEstimados, type CriterioPuntos } from "@/lib/licitaciones"
+import { requisitosDePuntos } from "@/lib/licitaciones-aplicar"
+import { createClient } from "@/lib/supabase/client"
 import type { DatosLicitacion } from "./use-licitacion"
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 
-export function PuntosLicitacion({ datos }: { datos: DatosLicitacion }) {
+export function PuntosLicitacion({
+  datos,
+  puedeGestionar,
+  onCambio,
+}: {
+  datos: DatosLicitacion
+  puedeGestionar: boolean
+  onCambio: () => Promise<void>
+}) {
   const { licitacion, requisitos } = datos
+  const faltantes = requisitosDePuntos(licitacion.tablaPuntos, requisitos)
+  const [creando, setCreando] = React.useState(false)
+
+  async function crearRequisitos() {
+    setCreando(true)
+    const base = requisitos.reduce((m, r) => Math.max(m, r.orden), 0)
+    const { error } = await createClient()
+      .from("licitacion_requisitos")
+      .insert(faltantes.map((r, i) => ({ ...r, licitacion_id: licitacion.id, orden: base + i + 1 })))
+    setCreando(false)
+    if (error) return toast.error("No se pudieron crear los requisitos de puntos.")
+    toast.success(`${faltantes.length} requisito(s) de puntos agregados. Márcalos como “Listo” conforme reúnas cada documento.`)
+    await onCambio()
+  }
   const tabla = licitacion.tablaPuntos
   const maxTec = licitacion.puntosTecnicosMax ?? r2(tabla.reduce((t, c) => t + c.maximo, 0))
   const maxEco = licitacion.puntosEconomicosMax ?? 40
@@ -44,6 +71,18 @@ export function PuntosLicitacion({ datos }: { datos: DatosLicitacion }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {puedeGestionar && faltantes.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg border border-dashed p-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-sm">
+            {faltantes.length} criterio(s) de la tabla no tienen requisito para darle seguimiento (
+            {Math.round(faltantes.reduce((t, r) => t + (r.puntos_max ?? 0), 0) * 100) / 100} puntos).
+          </span>
+          <Button size="sm" onClick={crearRequisitos} disabled={creando}>
+            <ListPlus data-icon="inline-start" />
+            Crear requisitos de puntos
+          </Button>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
