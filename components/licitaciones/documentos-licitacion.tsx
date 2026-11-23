@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Download, FileText, Sparkles, Trash2, Upload } from "lucide-react"
+import { Download, Eye, FileText, Sparkles, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -23,6 +23,8 @@ import { BUCKET_EXPEDIENTES, formatoTamano } from "@/lib/contratos"
 import { formatFechaHora } from "@/lib/format"
 import {
   TIPOS_DOCUMENTO_LICITACION,
+  lecturaVencida,
+  mapEstadoLectura,
   type DocumentoLicitacion,
   type TipoDocumentoLicitacion,
 } from "@/lib/licitaciones"
@@ -33,7 +35,7 @@ import {
   requisitosNuevos,
   type SeccionesAplicar,
 } from "@/lib/licitaciones-aplicar"
-import type { LecturaLicitacion } from "@/lib/licitaciones-lectura"
+import { normalizarLecturaLicitacion, type LecturaLicitacion } from "@/lib/licitaciones-lectura"
 import { createClient } from "@/lib/supabase/client"
 import type { DatosLicitacion } from "./use-licitacion"
 
@@ -136,6 +138,48 @@ export function DocumentosLicitacion({
     }
   }
 
+  // Consulta el estado guardado hasta que la lectura termine (corre en segundo plano).
+  const esperar = React.useCallback(
+    async (doc: DocumentoLicitacion) => {
+      setLeyendo(doc.id)
+      const supabase = createClient()
+      try {
+        for (;;) {
+          await new Promise((r) => setTimeout(r, 5000))
+          const { data } = await supabase.from("licitacion_documentos").select("lectura").eq("id", doc.id).maybeSingle()
+          const e = mapEstadoLectura(data?.lectura)
+          if (!e || lecturaVencida(e)) {
+            toast.error("La lectura tardó demasiado y se canceló. Intenta de nuevo; si se repite, divide el PDF en partes.")
+            return
+          }
+          if (e.estado === "error") {
+            toast.error(e.error || "No se pudo leer el documento.")
+            return
+          }
+          if (e.estado === "lista") {
+            setLectura({ doc, lectura: normalizarLecturaLicitacion(e.lectura) })
+            void onCambio()
+            return
+          }
+        }
+      } finally {
+        setLeyendo(null)
+      }
+    },
+    [onCambio],
+  )
+
+  // Si al abrir la página hay una lectura en curso (p. ej. se recargó), sigue esperándola.
+  const reanudada = React.useRef(false)
+  React.useEffect(() => {
+    if (reanudada.current) return
+    const enCurso = documentos.find((d) => d.lectura?.estado === "leyendo" && !lecturaVencida(d.lectura))
+    if (enCurso) {
+      reanudada.current = true
+      void esperar(enCurso)
+    }
+  }, [documentos, esperar])
+
   async function leer(doc: DocumentoLicitacion) {
     setLeyendo(doc.id)
     try {
@@ -145,13 +189,18 @@ export function DocumentosLicitacion({
         body: JSON.stringify({ documentoId: doc.id }),
       })
       const d = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(d.error ?? "No se pudo leer el documento.")
-      setLectura({ doc, lectura: d.lectura as LecturaLicitacion })
+      if (!r.ok) throw new Error(d.error ?? `No se pudo iniciar la lectura (error ${r.status}).`)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "No se pudo leer el documento.")
-    } finally {
       setLeyendo(null)
+      toast.error(e instanceof Error ? e.message : "No se pudo iniciar la lectura.")
+      return
     }
+    await esperar(doc)
+  }
+
+  function verLectura(doc: DocumentoLicitacion) {
+    if (doc.lectura?.estado !== "lista") return
+    setLectura({ doc, lectura: normalizarLecturaLicitacion(doc.lectura.lectura) })
   }
 
   async function descargar(doc: DocumentoLicitacion) {
@@ -254,6 +303,12 @@ export function DocumentosLicitacion({
                 <Badge variant="secondary">{d.tipo}</Badge>
               )}
               <div className="flex gap-1">
+                {puedeGestionar && d.lectura?.estado === "lista" && leyendo !== d.id && (
+                  <Button size="sm" variant="secondary" onClick={() => verLectura(d)}>
+                    <Eye data-icon="inline-start" />
+                    Ver lectura
+                  </Button>
+                )}
                 {puedeGestionar && LEGIBLES.has(d.mimeType) && (
                   <Button size="sm" variant={d.analizadoAt ? "outline" : "default"} onClick={() => leer(d)} disabled={leyendo !== null}>
                     {leyendo === d.id ? <Spinner data-icon="inline-start" /> : <Sparkles data-icon="inline-start" />}
@@ -273,7 +328,8 @@ export function DocumentosLicitacion({
           ))}
           {leyendo && (
             <p className="text-sm text-muted-foreground">
-              La IA está leyendo el documento completo; puede tardar de 1 a 4 minutos según el número de páginas.
+              La IA está leyendo el documento completo; puede tardar de 1 a 5 minutos según el número de páginas. Puedes
+              salir de esta pantalla: la lectura sigue y al volver la verás con “Ver lectura”.
             </p>
           )}
         </div>

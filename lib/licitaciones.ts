@@ -162,6 +162,34 @@ export interface Licitacion {
   createdAt: string
 }
 
+/** Estado de la lectura con IA guardado en el documento (corre en segundo plano). */
+export interface EstadoLectura {
+  estado: "leyendo" | "lista" | "error"
+  inicio: string
+  fin: string | null
+  error: string
+  /** LecturaLicitacion sin normalizar (se normaliza al usarla). */
+  lectura: unknown
+}
+
+/** Minutos tras los cuales una lectura "leyendo" se da por perdida. */
+export const MINUTOS_MAX_LECTURA = 6
+
+export function mapEstadoLectura(v: any): EstadoLectura | null {
+  if (!v || typeof v !== "object" || !["leyendo", "lista", "error"].includes(v.estado)) return null
+  return {
+    estado: v.estado,
+    inicio: String(v.inicio ?? ""),
+    fin: v.fin ? String(v.fin) : null,
+    error: typeof v.error === "string" ? v.error : "",
+    lectura: v.lectura ?? null,
+  }
+}
+
+export function lecturaVencida(e: EstadoLectura | null, ahora = Date.now()): boolean {
+  return !!e && e.estado === "leyendo" && ahora - new Date(e.inicio).getTime() > MINUTOS_MAX_LECTURA * 60_000
+}
+
 export interface DocumentoLicitacion {
   id: string
   licitacionId: string
@@ -172,6 +200,7 @@ export interface DocumentoLicitacion {
   mimeType: string
   tamanoBytes: number
   analizadoAt: string | null
+  lectura: EstadoLectura | null
   createdAt: string
 }
 
@@ -322,6 +351,7 @@ export function mapDocumentoLicitacion(r: Record<string, any>): DocumentoLicitac
     mimeType: txt(r.mime_type),
     tamanoBytes: Number(r.tamano_bytes ?? 0),
     analizadoAt: r.analizado_at ?? null,
+    lectura: mapEstadoLectura(r.lectura),
     createdAt: String(r.created_at ?? ""),
   }
 }

@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk"
-import { NextResponse } from "next/server"
+import { after, NextResponse } from "next/server"
 
 import { BUCKET_EXPEDIENTES } from "@/lib/contratos"
 import { bloquesDeArchivo, extraerJson, MODELO_LECTURA } from "@/lib/importacion-ia"
@@ -45,7 +45,7 @@ Qué hacer según el documento (tipo_documento):
 
 3. Otros documentos (propuesta, acuse ComprasMX, evidencia de visita, contrato): llena lo que aplique; en advertencias anota lo que falte o no cuadre con los requisitos (p. ej. hojas sin folio o sin firma, nombres que no coinciden, archivos que el acuse no lista).
 
-En listas que no apliquen al documento, responde []. Usa null en números desconocidos. advertencias: frases cortas sobre lo ilegible o dudoso.`
+Sé conciso para responder rápido: cada descripción de requisito en máximo 30 palabras, máximo 12 recomendaciones y 10 riesgos, sin repetir la misma idea en varias listas. En listas que no apliquen al documento, responde []. Usa null en números desconocidos. advertencias: frases cortas sobre lo ilegible o dudoso.`
 
 const FORMATO_RESPUESTA = `Formato de la respuesta
 Responde ÚNICAMENTE con un objeto JSON válido (sin texto antes ni después, sin bloques de código) que cumpla este JSON Schema:
@@ -68,13 +68,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     supabase.from("licitaciones").select("id, numero, objeto, partidas").eq("id", id).maybeSingle(),
     supabase
       .from("licitacion_documentos")
-      .select("id, licitacion_id, tipo, nombre_archivo, storage_path, tamano_bytes")
+      .select("id, licitacion_id, tipo, nombre_archivo, storage_path, tamano_bytes, lectura")
       .eq("id", documentoId)
       .maybeSingle(),
   ])
   if (!lic || !doc || doc.licitacion_id !== id) {
     return NextResponse.json({ error: "El documento no existe en esta licitación." }, { status: 404 })
   }
+  const enCurso = doc.lectura?.estado === "leyendo" && Date.now() - new Date(doc.lectura.inicio).getTime() < 6 * 60_000
+  if (enCurso) return NextResponse.json({ estado: "leyendo", inicio: doc.lectura.inicio }, { status: 202 })
   if (Number(doc.tamano_bytes) > MAX_BYTES_LECTURA) {
     return NextResponse.json({ error: "El archivo pesa más de 22 MB; la IA no puede leerlo completo. Divídelo en partes." }, { status: 400 })
   }
@@ -102,46 +104,57 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .filter(Boolean)
     .join("\n")
 
-  const client = new Anthropic()
-  try {
-    const stream = client.beta.messages.stream({
-      model: MODELO_LECTURA,
-      max_tokens: 32000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: "medium" },
-      system: `${INSTRUCCIONES}\n\n${FORMATO_RESPUESTA}`,
-      messages: [
-        {
-          role: "user",
-          content: [...bloques, { type: "text", text: `${contexto}\n\nLee el documento y responde solo con el objeto JSON.` }],
-        },
-      ],
-    })
-    const respuesta = await stream.finalMessage()
-    if (respuesta.stop_reason === "refusal") {
-      return NextResponse.json({ error: "La IA no pudo leer este documento." }, { status: 422 })
-    }
-    if (respuesta.stop_reason === "max_tokens") {
-      return NextResponse.json({ error: "El documento es demasiado extenso para leerlo de una vez; divídelo en partes." }, { status: 422 })
-    }
-    const texto = respuesta.content
-      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("")
-    let crudo: unknown
+  // La lectura corre en segundo plano (after): la respuesta sale de inmediato y el
+  // navegador consulta el estado guardado en el documento hasta que termine.
+  const inicio = new Date().toISOString()
+  await admin.from("licitacion_documentos").update({ lectura: { estado: "leyendo", inicio } }).eq("id", doc.id)
+
+  after(async () => {
+    const guardar = (lectura: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
+      admin.from("licitacion_documentos").update({ lectura, ...extra }).eq("id", doc.id)
+    const fallo = (error: string) => guardar({ estado: "error", inicio, fin: new Date().toISOString(), error })
     try {
-      crudo = JSON.parse(extraerJson(texto))
-    } catch {
-      return NextResponse.json({ error: "No se pudo interpretar la lectura; intenta de nuevo." }, { status: 502 })
+      const client = new Anthropic()
+      const stream = client.beta.messages.stream({
+        model: MODELO_LECTURA,
+        max_tokens: 24000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
+        output_config: { effort: "low" },
+        system: `${INSTRUCCIONES}\n\n${FORMATO_RESPUESTA}`,
+        messages: [
+          {
+            role: "user",
+            content: [...bloques, { type: "text", text: `${contexto}\n\nLee el documento y responde solo con el objeto JSON.` }],
+          },
+        ],
+      })
+      const respuesta = await stream.finalMessage()
+      if (respuesta.stop_reason === "refusal") return void (await fallo("La IA no pudo leer este documento."))
+      if (respuesta.stop_reason === "max_tokens") {
+        return void (await fallo("El documento es demasiado extenso para leerlo de una vez; divídelo en partes."))
+      }
+      const texto = respuesta.content
+        .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("")
+      let crudo: unknown
+      try {
+        crudo = JSON.parse(extraerJson(texto))
+      } catch {
+        return void (await fallo("No se pudo interpretar la lectura; intenta de nuevo."))
+      }
+      const fin = new Date().toISOString()
+      await guardar({ estado: "lista", inicio, fin, lectura: normalizarLecturaLicitacion(crudo) }, { analizado_at: fin })
+    } catch (e) {
+      console.error("[licitaciones/analizar]", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e)
+      await fallo(
+        e instanceof Anthropic.RateLimitError
+          ? "La IA está saturada; intenta en un minuto."
+          : "No se pudo leer el documento; intenta de nuevo.",
+      )
     }
-    await supabase.from("licitacion_documentos").update({ analizado_at: new Date().toISOString() }).eq("id", doc.id)
-    return NextResponse.json({ lectura: normalizarLecturaLicitacion(crudo) })
-  } catch (e) {
-    console.error("[licitaciones/analizar]", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e)
-    if (e instanceof Anthropic.RateLimitError) {
-      return NextResponse.json({ error: "La IA está saturada; intenta en un minuto." }, { status: 429 })
-    }
-    return NextResponse.json({ error: "No se pudo leer el documento; intenta de nuevo." }, { status: 502 })
-  }
+  })
+
+  return NextResponse.json({ estado: "leyendo", inicio }, { status: 202 })
 }
