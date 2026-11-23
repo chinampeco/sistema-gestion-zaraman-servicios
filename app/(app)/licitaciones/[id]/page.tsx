@@ -96,7 +96,7 @@ export default function LicitacionPage() {
               <RequisitosLicitacion {...comun} />
             </TabsContent>
             <TabsContent value="puntos">
-              <PuntosLicitacion datos={datos} />
+              <PuntosLicitacion datos={datos} puedeGestionar={puedeGestionar} onCambio={recargar} />
             </TabsContent>
             <TabsContent value="fechas">
               <FechasLicitacion {...comun} />

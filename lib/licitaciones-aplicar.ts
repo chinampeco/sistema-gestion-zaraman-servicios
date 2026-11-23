@@ -78,6 +78,27 @@ function mezclarPuntos(actuales: CriterioPuntos[], leidos: CriterioPuntos[]): Cr
   return [...actuales, ...leidos.filter((c) => !vistos.has(clave(c)))]
 }
 
+/**
+ * Un requisito de categoría "Puntos" por cada criterio de la tabla que aún no
+ * tenga uno (se busca su clave en el numeral, formato o descripción). Con ellos
+ * se calculan los puntos técnicos asegurados.
+ */
+export function requisitosDePuntos(tabla: CriterioPuntos[], existentes: { numeral: string; formato: string; descripcion: string }[]) {
+  const norm = (t: string) => t.toLowerCase().replace(/\s+/g, "")
+  const textos = existentes.map((r) => norm(`${r.numeral} ${r.formato} ${r.descripcion}`))
+  return tabla
+    .filter((c) => c.clave && c.maximo > 0 && !textos.some((t) => t.includes(norm(c.clave))))
+    .map((c) => ({
+      categoria: "Puntos" as const,
+      numeral: c.clave,
+      descripcion: [c.subrubro || c.descripcion, c.como_acreditar].filter(Boolean).join(": "),
+      formato: "",
+      obligatorio: c.maximo > 0.1,
+      desecha: false,
+      puntos_max: c.maximo,
+    }))
+}
+
 /** Estado sugerido con el resultado del fallo. */
 export function estadoPorResultado(lectura: LecturaLicitacion): EstadoLicitacion | null {
   const nuestras = lectura.resultado?.nuestras ?? []
@@ -163,8 +184,11 @@ export async function aplicarLectura(
   }
 
   let nReq = 0
-  if (s.requisitos) {
-    const nuevos = requisitosNuevos(lectura, requisitos)
+  if (s.requisitos || s.puntos) {
+    const nuevos = [
+      ...(s.requisitos ? requisitosNuevos(lectura, requisitos) : []),
+      ...(s.puntos ? requisitosDePuntos(lectura.tabla_puntos, [...requisitos, ...(s.requisitos ? requisitosNuevos(lectura, requisitos) : [])]) : []),
+    ]
     if (nuevos.length) {
       const base = requisitos.reduce((m, r) => Math.max(m, r.orden), 0)
       const { error } = await supabase.from("licitacion_requisitos").insert(
