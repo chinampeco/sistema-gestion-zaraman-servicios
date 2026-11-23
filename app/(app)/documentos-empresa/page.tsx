@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { CalendarCheck, Download, History, Info, Sparkles, Trash2, Upload } from "lucide-react"
+import Link from "next/link"
+import { CalendarCheck, Download, FileUser, History, Info, Sparkles, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { PageHeader } from "@/components/page-header"
@@ -126,12 +127,18 @@ export default function DocumentosEmpresaPage() {
         title="Documentos de la empresa"
         description={`Expediente legal y fiscal de ${empresaActiva?.nombreComercial ?? "la empresa"} para ComprasMX y licitaciones, con sus vigencias.`}
         actions={
-          puedeSubir ? (
-            <Button onClick={() => setSubir({ abierto: true, tipo: "Opinión de cumplimiento SAT (32-D)" })}>
-              <Upload data-icon="inline-start" />
-              Subir documento
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" render={<Link href="/documentos-empresa/curriculum" />} nativeButton={false}>
+              <FileUser data-icon="inline-start" />
+              Currículum de la empresa
             </Button>
-          ) : null
+            {puedeSubir && (
+              <Button onClick={() => setSubir({ abierto: true, tipo: "Opinión de cumplimiento SAT (32-D)" })}>
+                <Upload data-icon="inline-start" />
+                Subir documento
+              </Button>
+            )}
+          </div>
         }
       />
 
