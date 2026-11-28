@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { NextResponse } from "next/server"
 
 import { BUCKET_EXPEDIENTES } from "@/lib/contratos"
-import { bloquesDeArchivo, extraerJson, MODELO_LECTURA, type Bloque } from "@/lib/importacion-ia"
+import { bloquesDeArchivo, errorIA, extraerJson, MODELO_LECTURA, type Bloque } from "@/lib/importacion-ia"
 import { adminClient, esUuid, requerirGestor } from "@/lib/importacion-servidor"
 import { createClient } from "@/lib/supabase/server"
 import { normalizarPerfil } from "@/lib/tecnico-perfil"
@@ -109,6 +109,7 @@ Arma su perfil y responde solo con el objeto JSON.`,
     })
   } catch (e) {
     console.error("[tecnicos/perfil]", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e)
-    return NextResponse.json({ error: "La IA no pudo armar el perfil en este momento. Intenta de nuevo." }, { status: 502 })
+    const { mensaje, status } = errorIA(e, "La IA no pudo armar el perfil en este momento. Intenta de nuevo.")
+    return NextResponse.json({ error: mensaje }, { status })
   }
 }

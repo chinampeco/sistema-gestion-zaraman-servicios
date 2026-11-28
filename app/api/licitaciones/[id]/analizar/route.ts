@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { after, NextResponse } from "next/server"
 
 import { BUCKET_EXPEDIENTES } from "@/lib/contratos"
-import { bloquesDeArchivo, extraerJson, MODELO_LECTURA } from "@/lib/importacion-ia"
+import { bloquesDeArchivo, errorIA, extraerJson, MODELO_LECTURA } from "@/lib/importacion-ia"
 import { adminClient, esUuid, requerirGestor } from "@/lib/importacion-servidor"
 import { ESQUEMA_LECTURA_LICITACION, normalizarLecturaLicitacion } from "@/lib/licitaciones-lectura"
 import { createClient } from "@/lib/supabase/server"
@@ -148,11 +148,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await guardar({ estado: "lista", inicio, fin, lectura: normalizarLecturaLicitacion(crudo) }, { analizado_at: fin })
     } catch (e) {
       console.error("[licitaciones/analizar]", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e)
-      await fallo(
-        e instanceof Anthropic.RateLimitError
-          ? "La IA está saturada; intenta en un minuto."
-          : "No se pudo leer el documento; intenta de nuevo.",
-      )
+      await fallo(errorIA(e).mensaje)
     }
   })
 

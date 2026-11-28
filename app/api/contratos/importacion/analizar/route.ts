@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk"
-import { NextResponse } from "next/server"
+import { after, NextResponse } from "next/server"
 
 import { BUCKET_EXPEDIENTES } from "@/lib/contratos"
 import {
@@ -7,8 +7,15 @@ import {
   MAX_ARCHIVOS_IMPORTACION,
   normalizarExtraccion,
 } from "@/lib/importacion-contratos"
-import { bloquesDeArchivo, extraerJson, MODELO_LECTURA, type Bloque } from "@/lib/importacion-ia"
-import { adminClient, carpetaLote, esUuid, requerirGestor } from "@/lib/importacion-servidor"
+import { bloquesDeArchivo, errorIA, extraerJson, MODELO_LECTURA, type Bloque } from "@/lib/importacion-ia"
+import {
+  adminClient,
+  carpetaLote,
+  esUuid,
+  guardarEstadoLote,
+  leerEstadoLote,
+  requerirGestor,
+} from "@/lib/importacion-servidor"
 
 // Un contrato escaneado de ~20 páginas puede tardar un par de minutos.
 export const maxDuration = 300
@@ -109,55 +116,69 @@ export async function POST(request: Request) {
     text: `Son ${archivos.length} archivo(s), índices 0 a ${archivos.length - 1}. Extrae los datos del contrato según las instrucciones y responde solo con el objeto JSON.`,
   })
 
-  const client = new Anthropic()
-  try {
-    const stream = client.beta.messages.stream({
-      model: MODELO,
-      max_tokens: 32000,
-      betas: ["server-side-fallback-2026-07-01"],
-      // Si un clasificador de seguridad rechaza la petición, la API la reintenta
-      // con el modelo de respaldo recomendado.
-      fallbacks: "default",
-      // El esquema completo es demasiado grande para la salida estricta de la API
-      // ("compiled grammar is too large"): se pide como instrucción y la
-      // respuesta se valida y normaliza en normalizarExtraccion().
-      output_config: { effort: "medium" },
-      system: `${INSTRUCCIONES}\n\n${FORMATO_RESPUESTA}`,
-      messages: [{ role: "user", content: contenido }],
-    })
-    const respuesta = await stream.finalMessage()
+  // La lectura corre en segundo plano (after) y deja su resultado junto a los
+  // archivos del lote; el navegador lo consulta con GET hasta que termine. Así un
+  // contrato largo no se corta por el límite de tiempo de la respuesta.
+  const inicio = new Date().toISOString()
+  const { empresaId } = sesion
+  await guardarEstadoLote(empresaId, lote, { estado: "leyendo", inicio })
 
-    if (respuesta.stop_reason === "refusal") {
-      return NextResponse.json({ error: "La IA no pudo procesar estos documentos. Captura el contrato a mano." }, { status: 422 })
-    }
-    if (respuesta.stop_reason === "max_tokens") {
-      return NextResponse.json({ error: "Los documentos son demasiado extensos para leerlos de una vez. Sube menos archivos." }, { status: 422 })
-    }
-    const texto = respuesta.content
-      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("")
-    let crudo: unknown
+  after(async () => {
+    const fin = () => new Date().toISOString()
+    const fallo = (error: string) => guardarEstadoLote(empresaId, lote, { estado: "error", inicio, fin: fin(), error })
     try {
-      crudo = JSON.parse(extraerJson(texto))
-    } catch {
-      return NextResponse.json({ error: "La respuesta de la IA no se pudo interpretar. Intenta de nuevo." }, { status: 502 })
+      const stream = new Anthropic().beta.messages.stream({
+        model: MODELO,
+        max_tokens: 32000,
+        betas: ["server-side-fallback-2026-07-01"],
+        // Si un clasificador de seguridad rechaza la petición, la API la reintenta
+        // con el modelo de respaldo recomendado.
+        fallbacks: "default",
+        // El esquema completo es demasiado grande para la salida estricta de la API
+        // ("compiled grammar is too large"): se pide como instrucción y la
+        // respuesta se valida y normaliza en normalizarExtraccion().
+        output_config: { effort: "medium" },
+        system: `${INSTRUCCIONES}\n\n${FORMATO_RESPUESTA}`,
+        messages: [{ role: "user", content: contenido }],
+      })
+      const respuesta = await stream.finalMessage()
+      if (respuesta.stop_reason === "refusal") return void (await fallo("La IA no pudo procesar estos documentos. Captura el contrato a mano."))
+      if (respuesta.stop_reason === "max_tokens") {
+        return void (await fallo("Los documentos son demasiado extensos para leerlos de una vez. Sube menos archivos."))
+      }
+      const texto = respuesta.content
+        .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("")
+      let crudo: unknown
+      try {
+        crudo = JSON.parse(extraerJson(texto))
+      } catch {
+        return void (await fallo("La respuesta de la IA no se pudo interpretar. Intenta de nuevo."))
+      }
+      await guardarEstadoLote(empresaId, lote, {
+        estado: "lista",
+        inicio,
+        fin: fin(),
+        extraccion: normalizarExtraccion(crudo, archivos.length),
+        modelo: respuesta.model,
+      })
+    } catch (error) {
+      console.error("[importacion/analizar]", error instanceof Anthropic.APIError ? `${error.status} ${error.message}` : error)
+      await fallo(errorIA(error, "No se pudieron analizar los documentos.").mensaje)
     }
-    return NextResponse.json({ extraccion: normalizarExtraccion(crudo, archivos.length), modelo: respuesta.model })
-  } catch (error) {
-    console.error("[importacion/analizar]", error instanceof Anthropic.APIError ? `${error.status} ${error.message}` : error)
-    if (error instanceof Anthropic.AuthenticationError) {
-      return NextResponse.json({ error: "La clave de la IA no es válida. Revísala en Vercel." }, { status: 503 })
-    }
-    if (error instanceof Anthropic.RateLimitError) {
-      return NextResponse.json({ error: "La IA está saturada en este momento. Intenta en un minuto." }, { status: 429 })
-    }
-    if (error instanceof Anthropic.BadRequestError) {
-      return NextResponse.json({ error: `La IA rechazó los archivos: ${error.message}` }, { status: 400 })
-    }
-    if (error instanceof Anthropic.APIError) {
-      return NextResponse.json({ error: `Error de la IA (${error.status ?? "sin estado"}). Intenta de nuevo.` }, { status: 502 })
-    }
-    return NextResponse.json({ error: "No se pudo analizar los documentos." }, { status: 500 })
-  }
+  })
+
+  return NextResponse.json({ estado: "leyendo", inicio }, { status: 202 })
+}
+
+// Estado de la lectura de un lote: leyendo | lista (con la extracción) | error.
+export async function GET(request: Request) {
+  const sesion = await requerirGestor()
+  if (!sesion.ok) return NextResponse.json({ error: sesion.error }, { status: sesion.status })
+  const lote = new URL(request.url).searchParams.get("lote")
+  if (!esUuid(lote)) return NextResponse.json({ error: "Solicitud inválida." }, { status: 400 })
+  const estado = await leerEstadoLote(sesion.empresaId, lote)
+  if (!estado) return NextResponse.json({ error: "No hay una lectura en curso para estos archivos." }, { status: 404 })
+  return NextResponse.json(estado, { headers: { "Cache-Control": "no-store" } })
 }

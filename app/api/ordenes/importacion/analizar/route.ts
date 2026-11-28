@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import { NextResponse } from "next/server"
 
 import { BUCKET_EXPEDIENTES } from "@/lib/contratos"
-import { bloquesDeArchivo, extraerJson, MODELO_LECTURA } from "@/lib/importacion-ia"
+import { bloquesDeArchivo, extraerJson, MODELO_LECTURA, errorIA } from "@/lib/importacion-ia"
 import { ESQUEMA_ORDENES, MAX_ARCHIVOS_ORDENES, normalizarLectura } from "@/lib/importacion-ordenes"
 import { adminClient, carpetaLote, esUuid, requerirGestor } from "@/lib/importacion-servidor"
 
@@ -98,15 +98,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ lectura: normalizarLectura(crudo) })
   } catch (error) {
     console.error("[ordenes/importacion/analizar]", error instanceof Anthropic.APIError ? `${error.status} ${error.message}` : error)
-    if (error instanceof Anthropic.AuthenticationError) {
-      return NextResponse.json({ error: "La clave de la IA no es válida. Revísala en Vercel." }, { status: 503 })
-    }
-    if (error instanceof Anthropic.RateLimitError) {
-      return NextResponse.json({ error: "La IA está saturada en este momento. Intenta en un minuto." }, { status: 429 })
-    }
-    if (error instanceof Anthropic.APIError) {
-      return NextResponse.json({ error: `Error de la IA (${error.status ?? "sin estado"}). Intenta de nuevo.` }, { status: 502 })
-    }
-    return NextResponse.json({ error: "No se pudo analizar el archivo." }, { status: 500 })
+    const { mensaje, status } = errorIA(error, "No se pudo analizar el archivo.")
+    return NextResponse.json({ error: mensaje }, { status })
   }
 }
