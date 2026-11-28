@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Plus, Search, Pencil, Wrench, Mail, Phone, Trash2 } from "lucide-react"
+import { Plus, Search, Pencil, Wrench, Mail, Phone, Trash2, ListChecks } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
 import { TecnicoFormDialog } from "@/components/tecnicos/tecnico-form-dialog"
@@ -30,7 +30,7 @@ import { useStore } from "@/lib/store"
 import type { Tecnico } from "@/lib/types"
 
 export default function TecnicosPage() {
-  const { tecnicos, ordenes, eliminarTecnico } = useStore()
+  const { tecnicos, ordenes, eliminarTecnico, empresaActiva } = useStore()
   const [query, setQuery] = React.useState("")
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Tecnico | null>(null)
@@ -58,12 +58,18 @@ export default function TecnicosPage() {
     <>
       <PageHeader
         title="Técnicos"
-        description="Personal técnico de ZARAMAN Servicios."
+        description={`Personal técnico de ${empresaActiva?.nombreComercial ?? "la empresa"}.`}
         actions={
-          <Button onClick={openNuevo}>
-            <Plus data-icon="inline-start" />
-            Nuevo técnico
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" render={<Link href="/tecnicos/relacion" />} nativeButton={false}>
+              <ListChecks data-icon="inline-start" />
+              Relación de personal
+            </Button>
+            <Button onClick={openNuevo}>
+              <Plus data-icon="inline-start" />
+              Nuevo técnico
+            </Button>
+          </div>
         }
       />
 
