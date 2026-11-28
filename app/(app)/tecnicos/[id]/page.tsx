@@ -13,6 +13,7 @@ import {
   Users,
   HardDrive,
   ClipboardList,
+  FileUser,
 } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
@@ -113,9 +114,15 @@ export default function TecnicoDetallePage() {
         title={tecnico.nombre}
         description={`${tecnico.rol}${tecnico.especialidad ? ` · ${tecnico.especialidad}` : ""}`}
         actions={
-          <Badge variant={tecnico.activo ? "success" : "secondary"}>
-            {tecnico.activo ? "Activo" : "Inactivo"}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={tecnico.activo ? "success" : "secondary"}>
+              {tecnico.activo ? "Activo" : "Inactivo"}
+            </Badge>
+            <Button variant="outline" render={<Link href={`/tecnicos/${tecnico.id}/cv`} />} nativeButton={false}>
+              <FileUser data-icon="inline-start" />
+              CV para licitación
+            </Button>
+          </div>
         }
       />
 
