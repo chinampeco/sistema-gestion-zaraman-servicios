@@ -4,7 +4,7 @@ import { NextResponse } from "next/server"
 import { BUCKET_EXPEDIENTES } from "@/lib/contratos"
 import { INFO_TIPO, TIPOS_DOCUMENTO_EMPRESA } from "@/lib/empresa-documentos"
 import { ESQUEMA_DOCUMENTO_EMPRESA, normalizarLecturaDocumento } from "@/lib/empresa-documentos-lectura"
-import { bloquesDeArchivo, extraerJson, MODELO_LECTURA } from "@/lib/importacion-ia"
+import { bloquesDeArchivo, errorIA, extraerJson, MODELO_LECTURA } from "@/lib/importacion-ia"
 import { adminClient, carpetaLote, esUuid, requerirGestor } from "@/lib/importacion-servidor"
 
 export const maxDuration = 120
@@ -79,9 +79,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ lectura: normalizarLecturaDocumento(crudo) })
   } catch (e) {
     console.error("[empresa-documentos/analizar]", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e)
-    if (e instanceof Anthropic.RateLimitError) {
-      return NextResponse.json({ error: "La IA está saturada; intenta en un minuto o captura las fechas a mano." }, { status: 429 })
-    }
-    return NextResponse.json({ error: "No se pudo leer el documento; captura las fechas a mano." }, { status: 502 })
+    const { mensaje, status } = errorIA(e, "No se pudo leer el documento; captura las fechas a mano.")
+    return NextResponse.json({ error: mensaje }, { status })
   }
 }

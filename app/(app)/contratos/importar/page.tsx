@@ -42,6 +42,28 @@ type Paso = "subir" | "analizando" | "revision" | "guardando" | "listo"
 const normalizar = (s: string) =>
   s.toLocaleLowerCase("es-MX").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "")
 
+/** Consulta cada 5 s el estado de la lectura del lote hasta que termine (máx. 7 min). */
+async function esperarLectura(
+  lote: string,
+): Promise<{ ok: true; extraccion: ExtraccionContrato } | { ok: false; error: string }> {
+  const limite = Date.now() + 7 * 60_000
+  let fallosSeguidos = 0
+  while (Date.now() < limite) {
+    await new Promise((r) => setTimeout(r, 5000))
+    const r = await fetch(`/api/contratos/importacion/analizar?lote=${lote}`, { cache: "no-store" }).catch(() => null)
+    if (!r || !r.ok) {
+      // Un corte de red momentáneo no detiene la lectura del servidor: se reintenta.
+      if (++fallosSeguidos >= 6) return { ok: false, error: "Se perdió la conexión mientras la IA leía. Intenta de nuevo." }
+      continue
+    }
+    fallosSeguidos = 0
+    const d = await r.json().catch(() => ({}))
+    if (d.estado === "lista" && d.extraccion) return { ok: true, extraccion: d.extraccion as ExtraccionContrato }
+    if (d.estado === "error") return { ok: false, error: d.error || "No se pudieron analizar los documentos." }
+  }
+  return { ok: false, error: "La lectura tardó demasiado. Intenta con menos archivos o divide el PDF." }
+}
+
 async function crearAccesoPortal(clienteId: string, nombre: string, email: string): Promise<string> {
   const password = generarPasswordTemporal()
   try {
@@ -142,35 +164,41 @@ export default function ImportarContratoPage() {
       setLote({ id: d1.lote, archivos: archivosLote })
 
       // 2. Lectura con IA.
-      setMensaje("Leyendo los documentos con IA… (un contrato escaneado puede tardar 1 a 3 minutos)")
+      // La lectura corre en el servidor en segundo plano; aquí solo se consulta su estado.
+      setMensaje("Leyendo los documentos con IA… (un contrato escaneado puede tardar 1 a 5 minutos; no cierres esta pantalla)")
       const r2 = await fetch("/api/contratos/importacion/analizar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lote: d1.lote, nombres: archivos.map((f) => f.name) }),
       })
-      const d2 = await r2.json().catch(() => ({ error: "El análisis tardó demasiado o se interrumpió." }))
+      const d2 = await r2.json().catch(() => ({}))
       if (!r2.ok) {
         await limpiarLote(d1.lote)
-        throw new Error(d2.error ?? "No se pudo analizar.")
+        throw new Error(d2.error ?? `No se pudo iniciar la lectura (error ${r2.status}).`)
       }
-      const ex: ExtraccionContrato = d2.extraccion
-      setExtraccion(ex)
+      const ex = await esperarLectura(d1.lote)
+      if (!ex.ok) {
+        await limpiarLote(d1.lote)
+        throw new Error(ex.error)
+      }
+      const extraida: ExtraccionContrato = ex.extraccion
+      setExtraccion(extraida)
 
       // El cliente es el área usuaria. Varias áreas comparten el RFC de su
       // dependencia, así que solo se propone un cliente existente si el nombre coincide.
-      const area = ex.dependencia.area_usuaria || ex.contrato.area_requirente || ex.dependencia.nombre
+      const area = extraida.dependencia.area_usuaria || extraida.contrato.area_requirente || extraida.dependencia.nombre
       const existente = clientes.find((c) => area && normalizar(c.nombre) === normalizar(area))
-      const email = ex.contrato.contacto_email.toLowerCase()
+      const email = extraida.contrato.contacto_email.toLowerCase()
       setCliente({
         clienteId: existente?.id ?? null,
         nuevo: {
           nombre: area,
-          rfc: ex.dependencia.rfc,
-          direccion: ex.dependencia.area_usuaria_domicilio || ex.dependencia.domicilio,
-          contacto: ex.contrato.administrador_nombre,
+          rfc: extraida.dependencia.rfc,
+          direccion: extraida.dependencia.area_usuaria_domicilio || extraida.dependencia.domicilio,
+          contacto: extraida.contrato.administrador_nombre,
           email,
-          telefono: ex.contrato.contacto_telefono,
-          dependencia: ex.dependencia.nombre,
+          telefono: extraida.contrato.contacto_telefono,
+          dependencia: extraida.dependencia.nombre,
         },
         acceso: { crear: true, email },
       })

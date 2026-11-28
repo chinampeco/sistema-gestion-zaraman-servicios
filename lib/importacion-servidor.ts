@@ -56,3 +56,33 @@ export async function borrarLote(empresaId: string, lote: string): Promise<void>
   const rutas = (data ?? []).map((f) => `${carpeta}/${f.name}`)
   if (rutas.length) await admin.storage.from(BUCKET_EXPEDIENTES).remove(rutas)
 }
+
+// Estado de una lectura con IA que corre en segundo plano, guardado junto a los
+// archivos del lote. El bucket solo admite tipos de documento, así que el JSON
+// viaja en base64 dentro de un XML pequeño. El nombre empieza con "_" para que
+// no se confunda con los archivos numerados del lote.
+const ARCHIVO_ESTADO = "_estado.xml"
+
+export async function guardarEstadoLote(empresaId: string, lote: string, estado: Record<string, unknown>): Promise<void> {
+  const xml = `<estado>${Buffer.from(JSON.stringify(estado), "utf8").toString("base64")}</estado>`
+  await adminClient()
+    .storage.from(BUCKET_EXPEDIENTES)
+    .upload(`${carpetaLote(empresaId, lote)}/${ARCHIVO_ESTADO}`, new Blob([xml], { type: "text/xml" }), {
+      contentType: "text/xml",
+      upsert: true,
+    })
+}
+
+export async function leerEstadoLote(empresaId: string, lote: string): Promise<Record<string, unknown> | null> {
+  const { data } = await adminClient()
+    .storage.from(BUCKET_EXPEDIENTES)
+    .download(`${carpetaLote(empresaId, lote)}/${ARCHIVO_ESTADO}`)
+  if (!data) return null
+  const m = /<estado>([A-Za-z0-9+/=]*)<\/estado>/.exec(await data.text())
+  if (!m) return null
+  try {
+    return JSON.parse(Buffer.from(m[1], "base64").toString("utf8"))
+  } catch {
+    return null
+  }
+}

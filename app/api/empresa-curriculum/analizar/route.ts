@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 
 import { BUCKET_EXPEDIENTES } from "@/lib/contratos"
 import { mes, normalizarExperiencia } from "@/lib/curriculum"
-import { bloquesDeArchivo, extraerJson, MODELO_LECTURA } from "@/lib/importacion-ia"
+import { bloquesDeArchivo, errorIA, extraerJson, MODELO_LECTURA } from "@/lib/importacion-ia"
 import { adminClient, esUuid, requerirGestor } from "@/lib/importacion-servidor"
 import { createClient } from "@/lib/supabase/server"
 
@@ -117,6 +117,7 @@ export async function POST(request: Request) {
     })
   } catch (e) {
     console.error("[empresa-curriculum/analizar]", e instanceof Anthropic.APIError ? `${e.status} ${e.message}` : e)
-    return NextResponse.json({ error: "No se pudo leer el documento; intenta de nuevo." }, { status: 502 })
+    const { mensaje, status } = errorIA(e)
+    return NextResponse.json({ error: mensaje }, { status })
   }
 }

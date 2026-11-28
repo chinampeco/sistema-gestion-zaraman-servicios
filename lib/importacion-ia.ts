@@ -1,6 +1,6 @@
 // Utilidades de servidor para leer documentos con la IA (contratos y órdenes).
 
-import type Anthropic from "@anthropic-ai/sdk"
+import Anthropic from "@anthropic-ai/sdk"
 import mammoth from "mammoth"
 
 export type Bloque = Anthropic.Beta.BetaContentBlockParam
@@ -59,4 +59,39 @@ export async function bloquesDeArchivo(buffer: Buffer, titulo: string): Promise<
     ]
   }
   return null
+}
+
+/** Mensaje de la API sin el JSON alrededor (p. ej. "Your credit balance is too low…"). */
+function textoDelError(e: InstanceType<typeof Anthropic.APIError>): string {
+  const cuerpo = e.error as { error?: { message?: string } } | undefined
+  return cuerpo?.error?.message ?? e.message
+}
+
+/**
+ * Traduce un error de la IA a un mensaje claro en español y su estado HTTP.
+ * Lo usan todas las lecturas con IA (contratos, órdenes, licitaciones, documentos…).
+ */
+export function errorIA(e: unknown, generico = "No se pudo leer el documento; intenta de nuevo."): { mensaje: string; status: number } {
+  if (!(e instanceof Anthropic.APIError)) return { mensaje: generico, status: 502 }
+  const texto = textoDelError(e)
+  if (/credit balance|billing|purchase credits/i.test(texto)) {
+    return {
+      mensaje:
+        "Se terminó el saldo de la IA. Recarga créditos en console.anthropic.com (Settings → Billing) y vuelve a intentar.",
+      status: 402,
+    }
+  }
+  if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
+    return { mensaje: "La clave de la IA no es válida o no tiene permiso. Revísala en Vercel (ANTHROPIC_API_KEY).", status: 503 }
+  }
+  if (e instanceof Anthropic.RateLimitError) {
+    return { mensaje: "La IA está saturada en este momento. Intenta en un minuto.", status: 429 }
+  }
+  if (e.status === 529 || /overloaded/i.test(texto)) {
+    return { mensaje: "La IA está sobrecargada en este momento. Intenta en unos minutos.", status: 503 }
+  }
+  if (e instanceof Anthropic.BadRequestError) {
+    return { mensaje: `La IA rechazó los archivos: ${texto}`, status: 400 }
+  }
+  return { mensaje: `Error de la IA (${e.status ?? "sin estado"}). Intenta de nuevo.`, status: 502 }
 }
